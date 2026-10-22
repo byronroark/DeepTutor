@@ -603,6 +603,10 @@ _auth = [Depends(require_learning_surface)]
 # (single-user local runs are implicitly admin — no behaviour change there).
 _admin = [Depends(require_admin)]
 
+from deeptutor.api.routers.family_learning import router as family_learning_router
+
+app.include_router(family_learning_router, prefix="/api/family-learning", tags=["family-learning"])
+
 app.include_router(
     multi_user_router,
     prefix="/api/multi-user",

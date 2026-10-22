@@ -7,7 +7,7 @@ import tempfile
 import unittest
 import uuid
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'learning'))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'deeptutor/family_learning'))
 from local_lessons import Actor, Lessons
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,7 +20,7 @@ class LessonsTests(unittest.TestCase):
         self.engine = Lessons(self.temp.name)
         self.parent = Actor('parent-a', 'parent')
         self.child = Actor('learner-a', 'learner')
-        self.samples = json.loads((ROOT / 'learning/starter_lessons.json').read_text())
+        self.samples = json.loads((ROOT.parent / 'deeptutor/family_learning/starter_lessons.json').read_text())
         self.course = self.engine.publish(self.parent, self.samples[0])
         self.engine.assign(self.parent, self.course, self.child.id)
 

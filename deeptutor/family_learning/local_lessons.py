@@ -177,6 +177,24 @@ class Lessons:
             data, lessons, _ = self.current(db, actor, course)
             return {**data, 'lessons': lessons}
 
+    def catalog(self, actor):
+        with self.db() as db:
+            if actor.role == 'parent':
+                rows = db.execute('SELECT * FROM courses WHERE owner=? ORDER BY rowid DESC', (actor.id,)).fetchall()
+            elif actor.role == 'learner':
+                rows = db.execute('SELECT c.* FROM courses c JOIN assignments a ON a.course=c.id WHERE a.learner=? AND a.active=1 ORDER BY c.rowid DESC', (actor.id,)).fetchall()
+            else:
+                raise PermissionError('Unknown account role')
+            return [{'id': row['id'], 'title': json.loads(row['content'])['title'], 'subject': json.loads(row['content'])['subject']} for row in rows]
+
+    def parent_course(self, actor, course):
+        with self.db() as db:
+            row = self.owned(db, actor, course)
+            return {'course': json.loads(row['content']),
+                    'assignments': [dict(item) for item in db.execute('SELECT learner,active FROM assignments WHERE course=?', (course,))],
+                    'progress': [dict(item) for item in db.execute('SELECT learner,lesson,state,attempts,feedback FROM work WHERE course=?', (course,))],
+                    'submissions': [dict(item) for item in db.execute('SELECT * FROM submissions WHERE course=?', (course,))]}
+
     def respond(self, actor, course, lesson_id, answer, request_id):
         if not isinstance(request_id, str) or not re.fullmatch(r'[a-f0-9]{32}', request_id):
             raise ValueError('A unique request ID is required')
