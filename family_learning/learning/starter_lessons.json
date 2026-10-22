@@ -1,0 +1,28 @@
+[
+  {
+    "title": "Python: meet a variable",
+    "subject": "Python",
+    "objectives": ["Recognize a variable assignment", "Predict a simple calculation"],
+    "lessons": [
+      {"id":"name-a-value","title":"A name for a number","explanation":"A variable gives a value a name. In Python, apples = 3 stores the number 3 using the name apples.","question":"After apples = 3, what value does apples hold?","kind":"choice","choices":["3","apples","0"],"answer":0,"hints":["Look at the number on the right side of the equals sign."],"success":"Yes! apples now holds the number 3."},
+      {"id":"use-a-value","title":"Use your variable","explanation":"Python can calculate using a variable. If apples = 3, then apples + 1 is 4.","question":"If stars = 5, what is stars + 2?","kind":"number","answer":"7","hints":["Replace stars with 5. Now add 2."],"success":"Exactly: 5 + 2 = 7. You used a variable in a calculation!"}
+    ]
+  },
+  {
+    "title": "Fractions: equal shares",
+    "subject": "Mathematics",
+    "objectives": ["Count equal shares", "Recognize equivalent fractions"],
+    "lessons": [
+      {"id":"equal-parts","title":"Sharing a pizza","explanation":"A fraction describes equal parts of a whole. One half means one of two equal parts.","question":"A pizza is cut into 4 equal pieces. You eat 2 pieces. How many pieces are left?","kind":"number","answer":"2","hints":["Start with 4 pieces and take away 2."],"success":"Correct! Two pieces remain: half of the pizza."},
+      {"id":"same-share","title":"Different pieces, same share","explanation":"One half and two quarters describe the same amount. Cutting the pieces smaller does not change the amount of pizza.","question":"Which fraction is equal to 1/2?","kind":"choice","choices":["1/4","2/4","3/4"],"answer":1,"hints":["Half of four pieces is two pieces."],"success":"Yes! 2/4 and 1/2 describe the same share."}
+    ]
+  },
+  {
+    "title": "My book report",
+    "subject": "Writing",
+    "objectives": ["Summarize a book", "Support an opinion with an example"],
+    "lessons": [
+      {"id":"book-report","title":"Tell me about your book","explanation":"Write about a book you have read. Explain what happens, describe a character and give your opinion with an example. Your parent will read your report and help you revise it.","question":"What should another reader know about this book?","kind":"writing","rubric":["Summarizes the main events in the writer's own words","Describes a character with an example","Supports an opinion with a detail from the book","Uses clear sentences and checks punctuation"],"hints":["Start with the title and what the story is about."],"success":"Your parent has approved your report."}
+    ]
+  }
+]

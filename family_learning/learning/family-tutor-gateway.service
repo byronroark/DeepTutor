@@ -1,0 +1,19 @@
+[Unit]
+Description=Parent-owned tutoring allowance and private model gateway
+After=network-online.target docker.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 -B %h/.local/lib/family-tutor/luna_gateway.py
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/.local/state/family-tutor/budget
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=default.target

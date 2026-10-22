@@ -1,0 +1,23 @@
+name: Family Learning offline checks
+on:
+  push:
+    paths: ['family_learning/**', '.github/workflows/family-learning.yml']
+  pull_request:
+    paths: ['family_learning/**', '.github/workflows/family-learning.yml']
+permissions:
+  contents: read
+jobs:
+  local-learning:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Local lessons and parent review
+        run: python3 -B family_learning/tests/check_local_lessons.py
+      - name: Notification timing
+        run: python3 -B family_learning/tests/check_escalation.py
+      - name: Weekly allowance
+        run: python3 -B family_learning/tests/check_weekly_budget.py
+      - name: Restricted gateway
+        run: python3 -B family_learning/tests/check_luna_gateway.py
+      - name: Private setup
+        run: python3 -B family_learning/tests/check_tutor_setup.py
