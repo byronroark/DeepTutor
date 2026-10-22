@@ -15,6 +15,8 @@ jobs:
         run: python3 -B family_learning/tests/check_local_lessons.py
       - name: Local-only learner boundary and Python lesson syntax
         run: python3 -B family_learning/tests/check_local_access.py && python3 -B family_learning/tests/check_python_runner.py
+      - name: Assignment-aware Python grading and scoped Unix broker
+        run: python3 -B family_learning/tests/check_python_grading.py && python3 -B family_learning/tests/check_python_broker.py
       - name: Pull pinned Python acceptance image
         run: docker pull python@sha256:cb33f7f771ecec2ef1225cf39b159591a040391bd73e4c01f00fdfc4c47611d2
       - name: Disposable Python container acceptance

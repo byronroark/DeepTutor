@@ -117,6 +117,38 @@ class AcceptanceTests(unittest.TestCase):
         self.assertEqual(raised.exception.code, 403)
         raised.exception.close()
 
+    @unittest.skipUnless(
+        os.environ.get("FAMILY_PYTHON_HTTP_TEST") == "1", "explicit host-broker acceptance only"
+    )
+    def test_python_program_output_retry_and_loop_unlock(self):
+        key = self.course(3)
+        path = f"/api/family-learning/courses/{key}/lessons"
+        with self.assertRaises(HTTPError) as denied:
+            self.child.call(
+                path + "/variable-program/answer", {"answer": "7", "request_id": uuid.uuid4().hex}
+            )
+        self.assertEqual(denied.exception.code, 409)
+        denied.exception.close()
+        wrong = self.child.call(
+            path + "/variable-program/python",
+            {"code": "stars = 5\nprint(stars + 1)", "request_id": uuid.uuid4().hex},
+        )
+        self.assertEqual(wrong["state"], "retry")
+        self.assertEqual(wrong["output"], "6\n")
+        request = {"code": "stars = 5\nprint(stars + 2)", "request_id": uuid.uuid4().hex}
+        correct = self.child.call(path + "/variable-program/python", request)
+        self.assertEqual(correct["state"], "passed")
+        self.assertEqual(correct, self.child.call(path + "/variable-program/python", request))
+        view = self.child.call(f"/api/family-learning/courses/{key}")
+        self.assertTrue(view["lessons"][1]["unlocked"])
+        self.assertNotIn("expected_output", view["lessons"][0])
+        loop = self.child.call(
+            path + "/loop-program/python",
+            {"code": "for number in range(1, 6):\n print(number)", "request_id": uuid.uuid4().hex},
+        )
+        self.assertEqual(loop["state"], "passed")
+        self.assertEqual(loop["output"], "1\n2\n3\n4\n5\n")
+
 
 if __name__ == "__main__":
     unittest.main()

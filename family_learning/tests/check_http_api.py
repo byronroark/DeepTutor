@@ -4,6 +4,7 @@ import sys
 import tempfile
 from types import SimpleNamespace
 import unittest
+from unittest.mock import Mock
 import uuid
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -22,6 +23,7 @@ class HttpTests(unittest.TestCase):
         self.token = SimpleNamespace(user_id="parent-a", role="admin")
         self.enabled = True
         self.signed_in = True
+        self.python_executor = Mock(side_effect=RuntimeError("Disabled"))
 
         async def auth():
             if not self.signed_in:
@@ -36,6 +38,7 @@ class HttpTests(unittest.TestCase):
                 lambda: self.enabled,
                 lambda: "http://testserver",
                 lambda: [{"id": "child-a", "username": "Learner"}],
+                python_executor=self.python_executor,
             ),
             prefix="/api/family-learning",
         )
@@ -135,6 +138,40 @@ class HttpTests(unittest.TestCase):
         self.assertNotIn("answer", view["lessons"][0])
         self.token = SimpleNamespace(user_id="child-b", role="user")
         self.assertEqual(self.client.get(f"{self.base}/courses/{key}").status_code, 403)
+
+    def test_python_run_requires_assignment_and_server_identity(self):
+        self.course = json.loads(
+            (
+                Path(__file__).resolve().parents[2]
+                / "deeptutor/family_learning/starter_lessons.json"
+            ).read_text()
+        )[3]
+        key = self.publish_assign()
+        self.token = SimpleNamespace(user_id="child-a", role="user")
+        path = f"{self.base}/courses/{key}/lessons/variable-program/python"
+        body = {"code": "stars = 5\nprint(stars + 2)", "request_id": uuid.uuid4().hex}
+        self.assertEqual(self.client.post(path, json=body, headers=self.headers).status_code, 503)
+        self.python_executor.reset_mock()
+        self.assertEqual(
+            self.client.post(
+                path, json={**body, "learner": "other-child"}, headers=self.headers
+            ).status_code,
+            422,
+        )
+        self.python_executor.assert_not_called()
+        self.python_executor.side_effect = None
+        self.python_executor.return_value = {
+            "state": "passed",
+            "feedback": "Good job",
+            "output": "7\n",
+            "execution": "finished",
+        }
+        self.assertEqual(self.client.post(path, json=body, headers=self.headers).status_code, 200)
+        self.assertEqual(self.python_executor.call_args.args[0], Actor("child-a", "learner"))
+        self.token = SimpleNamespace(user_id="other-child", role="user")
+        self.python_executor.reset_mock()
+        self.assertEqual(self.client.post(path, json=body, headers=self.headers).status_code, 403)
+        self.python_executor.assert_not_called()
 
     def test_writing_submission_revision_and_approval_through_http(self):
         self.course = json.loads(

@@ -54,3 +54,32 @@ it('shows an actionable sign-in message without displaying private lessons',asyn
   expect(screen.getByRole('link',{name:'Sign in to your account'})).toBeTruthy()
   expect(screen.queryByRole('button',{name:'Fractions'})).toBeNull()
 })
+
+it('runs assigned Python through the narrow endpoint and displays output',async()=>{
+  let passed=false
+  mock.fetch.mockImplementation(async(path:string,init?:RequestInit)=>{
+    if(path.endsWith('/draft')){
+      expect(JSON.parse(String(init?.body)).text).toBe('stars = 5\nprint(stars + 2)')
+      return response({saved:true})
+    }
+    if(path.endsWith('/python')){
+      const body=JSON.parse(String(init?.body))
+      expect(body.code).toBe('stars = 5\nprint(stars + 2)')
+      expect(body.learner).toBeUndefined()
+      expect(body.request_id).toMatch(/^[a-f0-9]{32}$/)
+      passed=true
+      return response({state:'passed',feedback:'Your program worked!',output:'7\n',execution:'finished'})
+    }
+    if(path.endsWith('/courses/python-a'))return response({title:'Python lab',subject:'Python',objectives:['Use variables'],lessons:[{id:'program',title:'Stars',explanation:'Use a variable.',question:'Print 7.',kind:'python',starter_code:'stars = 5\nprint(stars + 2)',unlocked:true,state:passed?'passed':'new'}]})
+    return response({role:'learner',courses:[{id:'python-a',title:'Python lab',subject:'Python'}]})
+  })
+  render(<FamilyLearningPage/>)
+  fireEvent.click(await screen.findByRole('button',{name:'Python lab'}))
+  expect(await screen.findByLabelText('Your Python program')).toBeTruthy()
+  fireEvent.click(screen.getByRole('button',{name:'Save program'}))
+  expect(await screen.findByText('Program saved on this computer.')).toBeTruthy()
+  fireEvent.click(screen.getByRole('button',{name:'Run Python exercise'}))
+  expect(await screen.findByText('Your program worked!')).toBeTruthy()
+  expect(screen.getByLabelText('Program result').textContent).toContain('7')
+  expect(screen.getByText('Completed ✓')).toBeTruthy()
+})

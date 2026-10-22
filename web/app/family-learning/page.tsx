@@ -1,10 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiFetch } from '@/shared/api/client'
 
 type Summary = { id: string; title: string; subject: string }
-type Lesson = { id: string; title: string; explanation?: string; question?: string; kind?: string; choices?: string[]; rubric?: string[]; answer?: string | number; hints?: string[]; success?: string; unlocked?: boolean; state?: string; feedback?: string; draft?: string }
+type Lesson = { id: string; title: string; explanation?: string; question?: string; kind?: string; choices?: string[]; rubric?: string[]; answer?: string | number; hints?: string[]; success?: string; starter_code?: string; expected_output?: string; requirements?: string[]; unlocked?: boolean; state?: string; feedback?: string; draft?: string }
+type Execution = {state:string;feedback:string;execution:string;output:string}
 type Course = { title: string; subject: string; objectives: string[]; lessons: Lesson[] }
 type Submission = { id: string; learner: string; writing: string; decision: string; feedback: string }
 type ParentCourse = { course: Course; assignments: { learner: string; active: number }[]; submissions: Submission[]; progress: {learner: string; lesson: string; state: string; attempts: number}[] }
@@ -32,6 +33,8 @@ export default function FamilyLearningPage() {
   const [message, setMessage] = useState('Loading your lessons…')
   const [busy, setBusy] = useState(false)
   const [exerciseType, setExerciseType] = useState('number')
+  const [executions,setExecutions] = useState<Record<string,Execution>>({})
+  const pendingRuns = useRef<Record<string,{code:string;id:string}>>({})
   const load = useCallback(async () => {
     const overview = await request<{role: string; courses: Summary[]}>('')
     setRole(overview.role); setCourses(overview.courses)
@@ -43,7 +46,7 @@ export default function FamilyLearningPage() {
     const data = await request<Course | ParentCourse>(`/courses/${id}`)
     setSelected(id)
     if ('course' in data) { setParentCourse(data); setCourse(data.course) }
-    else { setParentCourse(null); setCourse(data); setAnswers(Object.fromEntries(data.lessons.map(item => [item.id, item.draft ?? '']))) }
+    else { setParentCourse(null); setCourse(data); setAnswers(Object.fromEntries(data.lessons.map(item => [item.id, item.draft || item.starter_code || '']))) }
   }
   async function action(work: () => Promise<void>) {
     setBusy(true)
@@ -79,7 +82,8 @@ export default function FamilyLearningPage() {
             hints:[text('hint')||'Review the explanation or ask your parent for help.'],success:text('success')||'Well done!',
             ...(exerciseType==='number'?{answer:text('answer')}:{}),
             ...(exerciseType==='choice'?{choices:text('choices').split('\n').map(value=>value.trim()).filter(Boolean),answer:Number(text('correct'))-1}:{}),
-            ...(exerciseType==='writing'?{rubric:text('rubric').split('\n').map(value=>value.trim()).filter(Boolean)}:{})}
+            ...(exerciseType==='writing'?{rubric:text('rubric').split('\n').map(value=>value.trim()).filter(Boolean)}:{}),
+            ...(exerciseType==='python'?{starter_code:String(form.get('starter_code')??''),expected_output:String(form.get('expected_output')??''),requirements:text('requirement')?[text('requirement')]:[]}:{})}
           const saved=await request<{id:string}>('/courses',{title:text('title'),subject:text('subject'),objectives:[text('objective')],lessons:[lesson]})
           await load();await open(saved.id);setMessage('Lesson saved for review. Assign it when you are ready.')
         })
@@ -87,10 +91,15 @@ export default function FamilyLearningPage() {
         {[['title','Lesson title'],['subject','Subject'],['objective','Learning objective']].map(([key,label])=><label className="block" key={key}>{label}<input name={key} required maxLength={200} className={field}/></label>)}
         <label className="block">Explanation<textarea name="explanation" required maxLength={20000} className={field}/></label>
         <label className="block">Question<textarea name="question" required maxLength={20000} className={field}/></label>
-        <label className="block">Exercise type<select value={exerciseType} onChange={event=>setExerciseType(event.target.value)} className={field}><option value="number">Number answer</option><option value="choice">Multiple choice</option><option value="writing">Writing for parent review</option></select></label>
+        <label className="block">Exercise type<select value={exerciseType} onChange={event=>setExerciseType(event.target.value)} className={field}><option value="number">Number answer</option><option value="choice">Multiple choice</option><option value="writing">Writing for parent review</option><option value="python">Python program</option></select></label>
         {exerciseType==='number' && <label className="block">Correct number<input name="answer" required maxLength={100} className={field}/></label>}
         {exerciseType==='choice' && <><label className="block">Choices, one per line<textarea name="choices" required className={field}/></label><label className="block">Correct choice number (starting at 1)<input name="correct" required type="number" min="1" max="8" className={field}/></label></>}
         {exerciseType==='writing' && <label className="block">Review criteria, one per line<textarea name="rubric" required className={field}/></label>}
+        {exerciseType==='python' && <>
+          <label className="block">Starting program<textarea name="starter_code" maxLength={16384} spellCheck={false} className={field+' font-mono'}/></label>
+          <label className="block">Expected printed output<textarea name="expected_output" maxLength={8192} spellCheck={false} className={field+' font-mono'}/></label>
+          <label className="block">Required concept<select name="requirement" className={field}><option value="">Output only</option><option value="assignment">A variable assignment</option><option value="for_loop">A for loop</option><option value="while_loop">A while loop</option></select></label>
+        </>}
         <label className="block">Prepared hint<textarea name="hint" maxLength={2000} className={field}/></label>
         <label className="block">Success feedback<input name="success" maxLength={2000} className={field}/></label>
         <button className={button} disabled={busy}>Save for review</button>
@@ -122,19 +131,32 @@ export default function FamilyLearningPage() {
             <h4 className="font-semibold">Parent review</h4>
             {lesson.choices && <ol>{lesson.choices.map((choice,index)=><li key={index}>{index+1}. {choice}</li>)}</ol>}
             {lesson.answer!==undefined && <p>Correct answer: {lesson.kind==='choice'?lesson.choices?.[Number(lesson.answer)]:String(lesson.answer)}</p>}
+            {lesson.kind==='python' && <><p>Expected printed output:</p><pre className="whitespace-pre-wrap">{lesson.expected_output}</pre><p>Required concepts: {lesson.requirements?.join(', ')||'Output only'}</p></>}
             {lesson.hints?.map((hint,index)=><p key={index}>Hint {index+1}: {hint}</p>)}
             <p>Success feedback: {lesson.success}</p>
           </aside>}
           {role==='learner' && <>
             {lesson.state==='passed'?<p>Completed ✓</p>:lesson.state==='review'?<p>Your parent is reviewing this. Your writing is saved.</p>:<>
               {lesson.kind==='choice'?<fieldset><legend>Choose your answer</legend>{lesson.choices?.map((choice,index)=><label key={index} className="block p-2"><input type="radio" name={lesson.id} checked={answers[lesson.id]===String(index)} onChange={()=>setAnswers({...answers,[lesson.id]:String(index)})}/> {choice}</label>)}</fieldset>:
-                <label className="block">Your answer<textarea className={field} maxLength={20000} value={answers[lesson.id]??''} onChange={event=>setAnswers({...answers,[lesson.id]:event.target.value})}/></label>}
-              {lesson.kind==='writing' && <button className={button} disabled={busy} onClick={()=>void action(async()=>{await request(`/courses/${selected}/lessons/${lesson.id}/draft`,{text:answers[lesson.id]??''});setMessage('Draft saved on this computer.')})}>Save draft</button>}
+                <label className="block">{lesson.kind==='python'?'Your Python program':'Your answer'}<textarea disabled={busy} className={field+(lesson.kind==='python'?' font-mono':'')} spellCheck={lesson.kind!=='python'} rows={lesson.kind==='python'?8:4} maxLength={lesson.kind==='python'?16384:20000} value={answers[lesson.id]??''} onChange={event=>setAnswers({...answers,[lesson.id]:event.target.value})}/></label>}
+              {['writing','python'].includes(lesson.kind??'') && <button className={button} disabled={busy} onClick={()=>void action(async()=>{await request(`/courses/${selected}/lessons/${lesson.id}/draft`,{text:answers[lesson.id]??''});setMessage(lesson.kind==='python'?'Program saved on this computer.':'Draft saved on this computer.')})}>{lesson.kind==='python'?'Save program':'Save draft'}</button>}
               <button className={button} disabled={busy || !answers[lesson.id]?.trim()} onClick={()=>void action(async()=>{
+                if(lesson.kind==='python'){
+                  setMessage('Running your program…')
+                  const key=selected+':'+lesson.id,code=answers[lesson.id]
+                  const pending=pendingRuns.current[key]
+                  const id=pending?.code===code?pending.id:crypto.randomUUID().replaceAll('-','')
+                  pendingRuns.current[key]={code,id}
+                  const result=await request<Execution>(`/courses/${selected}/lessons/${lesson.id}/python`,{code,request_id:id})
+                  delete pendingRuns.current[key]
+                  setExecutions(previous=>({...previous,[key]:result}));await open(selected);setMessage(result.feedback)
+                  return
+                }
                 const result=await request<{feedback:string}>(`/courses/${selected}/lessons/${lesson.id}/answer`,{answer:answers[lesson.id],request_id:crypto.randomUUID().replaceAll('-','')}); await open(selected);setMessage(result.feedback)
-              })}>{lesson.kind==='writing'?'Send to parent':'Check my answer'}</button>
+              })}>{lesson.kind==='writing'?'Send to parent':lesson.kind==='python'?'Run Python exercise':'Check my answer'}</button>
             </>}
             {lesson.feedback && <p role="status">{lesson.feedback}</p>}
+            {executions[selected+':'+lesson.id] && <section aria-label="Program result"><p>{({finished:'Program finished',error:'Check your program',time_limit:'Time limit reached — try a smaller loop',output_limit:'Too much printed output — try a smaller loop',syntax_feedback:'Check your Python syntax'} as Record<string,string>)[executions[selected+':'+lesson.id].execution]||'Program result'}</p><pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-lg border border-current/20 p-3">{executions[selected+':'+lesson.id].output||'(No printed output)'}</pre></section>}
           </>}
         </>}
       </article>)}

@@ -43,7 +43,10 @@ def validate(course):
         required = {"id", "title", "explanation", "question", "kind", "hints", "success"}
         if not isinstance(lesson, dict) or not required <= lesson.keys():
             raise ValueError("Incomplete lesson")
-        if lesson.keys() - (required | {"answer", "choices", "rubric"}):
+        if lesson.keys() - (
+            required
+            | {"answer", "choices", "rubric", "expected_output", "requirements", "starter_code"}
+        ):
             raise ValueError("Unsupported lesson field")
         if (
             not isinstance(lesson["id"], str)
@@ -91,8 +94,29 @@ def validate(course):
                 not isinstance(item, str) or not 1 <= len(item) <= 1000 for item in lesson["rubric"]
             ):
                 raise ValueError("Invalid rubric")
+        elif kind == "python":
+            if lesson.keys() & {"answer", "choices", "rubric"}:
+                raise ValueError("Python exercises use expected output and syntax requirements")
+            if (
+                not isinstance(lesson.get("expected_output"), str)
+                or len(lesson["expected_output"].encode()) > 8192
+            ):
+                raise ValueError("Python exercises need expected output of at most 8 KB")
+            requirements = lesson.get("requirements", [])
+            if not isinstance(requirements, list) or any(
+                not isinstance(item, str) or item not in {"assignment", "for_loop", "while_loop"}
+                for item in requirements
+            ):
+                raise ValueError("Unsupported Python exercise requirement")
+            if (
+                not isinstance(lesson.get("starter_code", ""), str)
+                or len(lesson.get("starter_code", "").encode()) > 16384
+            ):
+                raise ValueError("Python starter code must be at most 16 KB")
         else:
-            raise ValueError("Unsupported exercise; Python execution is not enabled yet")
+            raise ValueError("Unsupported exercise type")
+        if kind != "python" and lesson.keys() & {"expected_output", "requirements", "starter_code"}:
+            raise ValueError("Python settings belong only to Python exercises")
     if len(encoded(course).encode()) > 1_000_000:
         raise ValueError("Course too large")
 
@@ -137,6 +161,9 @@ class Lessons:
                 CREATE TABLE IF NOT EXISTS submissions(id TEXT PRIMARY KEY, course TEXT,
                     learner TEXT, lesson TEXT, writing TEXT, decision TEXT, feedback TEXT);
             """)
+            db.execute("BEGIN IMMEDIATE")
+            if "epoch" not in {row["name"] for row in db.execute("PRAGMA table_info(assignments)")}:
+                db.execute("ALTER TABLE assignments ADD COLUMN epoch INTEGER NOT NULL DEFAULT 0")
 
     @contextmanager
     def db(self):
@@ -170,7 +197,7 @@ class Lessons:
         with self.db() as db:
             self.owned(db, actor, course)
             db.execute(
-                "INSERT INTO assignments VALUES(?,?,?) ON CONFLICT(course,learner) DO UPDATE SET active=excluded.active",
+                "INSERT INTO assignments(course,learner,active) VALUES(?,?,?) ON CONFLICT(course,learner) DO UPDATE SET active=excluded.active, epoch=assignments.epoch+1",
                 (course, learner, int(active)),
             )
 
@@ -198,7 +225,7 @@ class Lessons:
             visible = {
                 key: value
                 for key, value in item.items()
-                if key not in {"answer", "hints", "success"}
+                if key not in {"answer", "hints", "success", "expected_output"}
             }
             visible.update(
                 {
@@ -281,6 +308,8 @@ class Lessons:
         with self.db() as db:
             db.execute("BEGIN IMMEDIATE")
             _, _, item = self.current(db, actor, course, lesson_id)
+            if item["kind"] == "python":
+                raise ValueError("Use the isolated Run Python exercise action")
             prior = db.execute("SELECT * FROM events WHERE id=?", (request_id,)).fetchone()
             if prior:
                 if prior["actor"] != actor.id or prior["fingerprint"] != fingerprint:
@@ -350,8 +379,10 @@ class Lessons:
         with self.db() as db:
             db.execute("BEGIN IMMEDIATE")
             _, _, item = self.current(db, actor, course, lesson)
-            if item["kind"] != "writing":
-                raise ValueError("Only writing exercises have drafts")
+            if item["kind"] not in {"writing", "python"}:
+                raise ValueError("Only writing and Python exercises have drafts")
+            if item["kind"] == "python" and len(text.encode()) > 16384:
+                raise ValueError("Python programs must be at most 16 KB")
             old = db.execute(
                 "SELECT state FROM work WHERE course=? AND learner=? AND lesson=?",
                 (course, actor.id, lesson),

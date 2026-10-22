@@ -1,4 +1,4 @@
-"""Factory for session-authenticated routes; no model or execution endpoints."""
+"""Session-authenticated local lessons; Python delegates to a scoped host broker."""
 
 import json
 from pathlib import Path
@@ -19,6 +19,12 @@ class Answer(BaseModel):
 class Draft(BaseModel):
     model_config = ConfigDict(extra="forbid")
     text: str = Field(max_length=20000)
+
+
+class PythonAnswer(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    code: str = Field(min_length=1, max_length=16384)
+    request_id: str = Field(pattern=r"^[a-f0-9]{32}$")
 
 
 class Assignment(BaseModel):
@@ -55,7 +61,9 @@ def origin(value):
         return None
 
 
-def create_router(require_auth, engine, enabled, allowed_origin, learner_accounts):
+def create_router(
+    require_auth, engine, enabled, allowed_origin, learner_accounts, python_executor=None
+):
     router = APIRouter()
 
     async def actor(request: Request, token=Depends(require_auth)):
@@ -89,6 +97,10 @@ def create_router(require_auth, engine, enabled, allowed_origin, learner_account
             raise HTTPException(403, "Course or submission unavailable") from exc
         except ValueError as exc:
             raise HTTPException(409, str(exc)) from exc
+        except (RuntimeError, OSError) as exc:
+            raise HTTPException(
+                503, "The local exercise service is not ready; ask your parent"
+            ) from exc
 
     @router.get("")
     def overview(current=Depends(actor)):
@@ -133,6 +145,20 @@ def create_router(require_auth, engine, enabled, allowed_origin, learner_account
     def draft(course: str, lesson: str, body: Draft, current=Depends(actor)):
         perform(lambda: engine().save_draft(current, course, lesson, body.text))
         return {"saved": True}
+
+    @router.post("/courses/{course}/lessons/{lesson}/python")
+    def python(course: str, lesson: str, body: PythonAnswer, current=Depends(actor)):
+        def run():
+            authority = engine()
+            with authority.db() as db:
+                _, _, item = authority.current(db, current, course, lesson)
+                if item["kind"] != "python":
+                    raise ValueError("This is not a Python exercise")
+            if python_executor is None:
+                raise RuntimeError("Python execution is not enabled")
+            return python_executor(current, course, lesson, body.code, body.request_id)
+
+        return perform(run)
 
     @router.post("/submissions/{submission}/review")
     def review(submission: str, body: Review, current=Depends(parent)):

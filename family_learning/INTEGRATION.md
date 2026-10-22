@@ -65,7 +65,8 @@ rebuild and does not establish household deployment readiness.
 The first interface is English; existing i18n lint warns on untranslated copy.
 Custom single-exercise authoring, parent answer/hint previews and sign-out also
 passed browser acceptance. A complete public-route audit and household
-acceptance remain required. The host-side Python runner passed disposable
-container checks but is not connected to learner requests. Ask Dad/Mom, parent
+acceptance remain required. Python exercises now delegate through an authenticated
+Unix broker and passed complete disposable HTTP/browser acceptance. The broker
+is not installed as a household service. See `PYTHON_LESSONS.md`. Ask Dad/Mom, parent
 unlock overrides and report exports remain unimplemented. No live model calls
 or API spending were introduced. See `ACCEPTANCE.md` for the runner boundary.

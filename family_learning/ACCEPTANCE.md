@@ -50,11 +50,12 @@ Tests also cover expected loop output, CPU/memory/output exhaustion, scratch
 discard and container cleanup. A discovered output-flood cleanup hang was fixed
 by disconnecting attach output before removal; the complete rerun passed.
 
-This runner is a HOST-SIDE prototype. It is not exposed over HTTP, integrated
-with course grading, or installed as a service. NEVER mount Docker's socket
-into DeepTutor or expose the runner directly to a learner. Next integration
-needs a narrow authenticated broker, assignment/revision checks, parent-owned
-exercise expectations, rate limits, server-side grading and UI feedback.
+The runner remains HOST-SIDE and is not installed as a household service.
+Assigned Python exercises now use a scoped authenticated Unix broker, assignment
+epoch checks, parent-owned output expectations, rate limits and server-side
+grading. The complete disposable HTTP and browser flows passed; see
+`PYTHON_LESSONS.md`. NEVER mount Docker's socket into DeepTutor or expose the
+runner directly to a learner. Parent recovery and household acceptance remain.
 Containers share the host kernel; these checks are not proof against all
 kernel/runtime vulnerabilities. Keep execution disabled in the household until
 the complete broker path and recovery behavior pass acceptance.
