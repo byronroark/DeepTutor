@@ -39,9 +39,12 @@ writing draft saves, submission state and parent feedback. Saving is explicit;
 autosave and unsaved-change navigation warnings remain future work.
 
 The route is currently reached directly, with no sidebar/default-home changes.
-The live household installation has not been enabled or replaced. Do not claim
-the new page disables existing DeepTutor chat routes: a learner-only deployment
-still needs explicit server-side removal of unrestricted AI surfaces.
+The live household installation has not been enabled or replaced. Optional
+`FAMILY_LEARNING_LOCAL_ONLY=1` now restricts the shared HTTP authentication
+dependency to lesson routes and a small account/sign-out allowlist for non-admins,
+and rejects learner WebSockets. Admin behavior remains available. Auth-disabled
+mode fails closed. A full audit of public routes and alternate authentication
+paths is still required before claiming comprehensive surface confinement.
 
 ## Validation and remaining acceptance
 
@@ -51,9 +54,18 @@ writing draft → submit → revise → approve workflow. Rendered UI tests cove
 learner progression, parent review and sign-in failures. Tests use fake identities
 and disposable records, not production accounts.
 
-Full source-built container, real login/proxy behavior, persistence across a
-container restart, browser visual acceptance, custom lesson authoring and live
-household acceptance remain required before deployment. The first interface is
-English; the existing i18n lint warns on untranslated copy. Python sandbox,
-Ask Dad/Mom connections, parent unlock overrides and complete report exports
-remain unimplemented. No live model calls or API spending were introduced.
+A production frontend build and a source-overlay acceptance image using the
+pinned upstream dependency runtime passed. Disposable real logins, frontend
+proxy origin checks, assignment revocation, writing revisions and approvals
+passed through HTTP. A browser walkthrough verified parent assignment, the
+learner-only assignment list, prepared feedback and unlocking. Saved progress
+survived an actual test-container restart. This was not a fresh dependency
+rebuild and does not establish household deployment readiness.
+
+The first interface is English; existing i18n lint warns on untranslated copy.
+Custom single-exercise authoring, parent answer/hint previews and sign-out also
+passed browser acceptance. A complete public-route audit and household
+acceptance remain required. The host-side Python runner passed disposable
+container checks but is not connected to learner requests. Ask Dad/Mom, parent
+unlock overrides and report exports remain unimplemented. No live model calls
+or API spending were introduced. See `ACCEPTANCE.md` for the runner boundary.

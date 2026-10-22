@@ -1,0 +1,6 @@
+# Local acceptance context: deeptutor/ source plus web/ production standalone.
+# Dependencies are pinned to the already-installed upstream 1.6.15 runtime.
+# This is a fork-source overlay, not a fresh dependency rebuild or release image.
+FROM ghcr.io/hkuds/deeptutor@sha256:602d5dfbac7430e364069ac6672642cb0d764e046d189bf596d9ddc6b775c535
+COPY --chown=deeptutor:deeptutor deeptutor/ /app/deeptutor/
+COPY --chown=deeptutor:deeptutor web/ /app/web/

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { apiFetch } from '@/shared/api/client'
 
 type Summary = { id: string; title: string; subject: string }
-type Lesson = { id: string; title: string; explanation?: string; question?: string; kind?: string; choices?: string[]; rubric?: string[]; unlocked?: boolean; state?: string; feedback?: string; draft?: string }
+type Lesson = { id: string; title: string; explanation?: string; question?: string; kind?: string; choices?: string[]; rubric?: string[]; answer?: string | number; hints?: string[]; success?: string; unlocked?: boolean; state?: string; feedback?: string; draft?: string }
 type Course = { title: string; subject: string; objectives: string[]; lessons: Lesson[] }
 type Submission = { id: string; learner: string; writing: string; decision: string; feedback: string }
 type ParentCourse = { course: Course; assignments: { learner: string; active: number }[]; submissions: Submission[]; progress: {learner: string; lesson: string; state: string; attempts: number}[] }
@@ -56,6 +56,11 @@ export default function FamilyLearningPage() {
   return <main className="mx-auto max-w-4xl space-y-6 p-6">
     <header><h1 className="text-3xl font-semibold">Family Learning</h1><p>Small steps. Time to practise. Help when you need it.</p></header>
     <p role="status" aria-live="polite">{message}</p>
+    {role && <button className={button} disabled={busy} onClick={()=>void action(async()=>{
+      const response=await apiFetch('/api/auth/logout',{method:'POST'})
+      if(!response.ok)throw new Error('Could not sign out. Please try again.')
+      window.location.assign('/login?next=%2Ffamily-learning')
+    })}>Sign out</button>}
     {!role && <a href="/login">Sign in to your account</a>}
     <div className="flex flex-wrap gap-3">{courses.map(item => <button className={button} disabled={busy} key={item.id} onClick={() => void action(() => open(item.id))}>{item.title}</button>)}</div>
     {role === 'parent' && <section className="space-y-3 rounded-xl border border-current/20 p-5">
@@ -113,6 +118,13 @@ export default function FamilyLearningPage() {
         {lesson.unlocked===false?<p>Finish the earlier lesson to unlock this step.</p>:<>
           <p className="whitespace-pre-wrap">{lesson.explanation}</p><p className="font-semibold">{lesson.question}</p>
           {lesson.rubric && <ul>{lesson.rubric.map(item=><li key={item}>{item}</li>)}</ul>}
+          {role==='parent' && <aside className="space-y-2 rounded-lg border border-current/20 p-3">
+            <h4 className="font-semibold">Parent review</h4>
+            {lesson.choices && <ol>{lesson.choices.map((choice,index)=><li key={index}>{index+1}. {choice}</li>)}</ol>}
+            {lesson.answer!==undefined && <p>Correct answer: {lesson.kind==='choice'?lesson.choices?.[Number(lesson.answer)]:String(lesson.answer)}</p>}
+            {lesson.hints?.map((hint,index)=><p key={index}>Hint {index+1}: {hint}</p>)}
+            <p>Success feedback: {lesson.success}</p>
+          </aside>}
           {role==='learner' && <>
             {lesson.state==='passed'?<p>Completed ✓</p>:lesson.state==='review'?<p>Your parent is reviewing this. Your writing is saved.</p>:<>
               {lesson.kind==='choice'?<fieldset><legend>Choose your answer</legend>{lesson.choices?.map((choice,index)=><label key={index} className="block p-2"><input type="radio" name={lesson.id} checked={answers[lesson.id]===String(index)} onChange={()=>setAnswers({...answers,[lesson.id]:String(index)})}/> {choice}</label>)}</fieldset>:
