@@ -1,4 +1,5 @@
 """Factory for session-authenticated routes; no model or execution endpoints."""
+
 import json
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -10,24 +11,24 @@ from .local_lessons import Actor
 
 
 class Answer(BaseModel):
-    model_config = ConfigDict(extra='forbid')
+    model_config = ConfigDict(extra="forbid")
     answer: str = Field(max_length=20000)
-    request_id: str = Field(pattern=r'^[a-f0-9]{32}$')
+    request_id: str = Field(pattern=r"^[a-f0-9]{32}$")
 
 
 class Draft(BaseModel):
-    model_config = ConfigDict(extra='forbid')
+    model_config = ConfigDict(extra="forbid")
     text: str = Field(max_length=20000)
 
 
 class Assignment(BaseModel):
-    model_config = ConfigDict(extra='forbid')
+    model_config = ConfigDict(extra="forbid")
     learner: str = Field(min_length=1, max_length=128)
     active: StrictBool = True
 
 
 class Review(BaseModel):
-    model_config = ConfigDict(extra='forbid')
+    model_config = ConfigDict(extra="forbid")
     approve: StrictBool
     feedback: str = Field(min_length=1, max_length=10000)
 
@@ -35,9 +36,21 @@ class Review(BaseModel):
 def origin(value):
     try:
         parsed = urlsplit(value)
-        if parsed.scheme not in {'http', 'https'} or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment or parsed.path not in {'', '/'}:
+        if (
+            parsed.scheme not in {"http", "https"}
+            or not parsed.hostname
+            or parsed.username
+            or parsed.password
+            or parsed.query
+            or parsed.fragment
+            or parsed.path not in {"", "/"}
+        ):
             return None
-        return parsed.scheme, parsed.hostname.lower(), parsed.port or (443 if parsed.scheme == 'https' else 80)
+        return (
+            parsed.scheme,
+            parsed.hostname.lower(),
+            parsed.port or (443 if parsed.scheme == "https" else 80),
+        )
     except ValueError:
         return None
 
@@ -47,72 +60,83 @@ def create_router(require_auth, engine, enabled, allowed_origin, learner_account
 
     async def actor(request: Request, token=Depends(require_auth)):
         if not enabled():
-            raise HTTPException(404, 'Family Learning is not enabled')
+            raise HTTPException(404, "Family Learning is not enabled")
         # DeepTutor's auth-disabled mode returns None. It must never become an
         # implicit parent for private family records.
-        if token is None or not getattr(token, 'user_id', None):
-            raise HTTPException(401, 'A signed-in account is required')
-        role = 'parent' if getattr(token, 'role', '') == 'admin' else 'learner'
-        if request.method not in {'GET', 'HEAD'}:
+        if token is None or not getattr(token, "user_id", None):
+            raise HTTPException(401, "A signed-in account is required")
+        role = "parent" if getattr(token, "role", "") == "admin" else "learner"
+        if request.method not in {"GET", "HEAD"}:
             configured = origin(allowed_origin())
-            if configured is None or origin(request.headers.get('origin', '')) != configured:
-                raise HTTPException(403, 'Open Family Learning from its configured address')
-            if request.headers.get('content-type', '').split(';')[0].strip().lower() != 'application/json':
-                raise HTTPException(415, 'JSON requests required')
+            if configured is None or origin(request.headers.get("origin", "")) != configured:
+                raise HTTPException(403, "Open Family Learning from its configured address")
+            if (
+                request.headers.get("content-type", "").split(";")[0].strip().lower()
+                != "application/json"
+            ):
+                raise HTTPException(415, "JSON requests required")
         return Actor(token.user_id, role)
 
     async def parent(current=Depends(actor)):
-        if current.role != 'parent':
-            raise HTTPException(403, 'Parent administrator required')
+        if current.role != "parent":
+            raise HTTPException(403, "Parent administrator required")
         return current
 
     def perform(call):
         try:
             return call()
         except PermissionError as exc:
-            raise HTTPException(403, 'Course or submission unavailable') from exc
+            raise HTTPException(403, "Course or submission unavailable") from exc
         except ValueError as exc:
             raise HTTPException(409, str(exc)) from exc
 
-    @router.get('')
+    @router.get("")
     def overview(current=Depends(actor)):
-        return {'role': current.role, 'courses': perform(lambda: engine().catalog(current))}
+        return {"role": current.role, "courses": perform(lambda: engine().catalog(current))}
 
-    @router.get('/learners')
+    @router.get("/learners")
     def learners(current=Depends(parent)):
         return learner_accounts()
 
-    @router.get('/starters')
+    @router.get("/starters")
     def starters(current=Depends(parent)):
-        return json.loads(Path(__file__).with_name('starter_lessons.json').read_text())
+        return json.loads(Path(__file__).with_name("starter_lessons.json").read_text())
 
-    @router.post('/courses')
+    @router.post("/courses")
     def publish(body: dict, current=Depends(parent)):
-        return {'id': perform(lambda: engine().publish(current, body))}
+        return {"id": perform(lambda: engine().publish(current, body))}
 
-    @router.get('/courses/{course}')
+    @router.get("/courses/{course}")
     def view(course: str, current=Depends(actor)):
-        return perform(lambda: engine().parent_course(current, course) if current.role == 'parent' else engine().view(current, course))
+        return perform(
+            lambda: (
+                engine().parent_course(current, course)
+                if current.role == "parent"
+                else engine().view(current, course)
+            )
+        )
 
-    @router.post('/courses/{course}/assignment')
+    @router.post("/courses/{course}/assignment")
     def assign(course: str, body: Assignment, current=Depends(parent)):
-        if body.learner not in {item['id'] for item in learner_accounts()}:
-            raise HTTPException(403, 'Select an enrolled learner')
+        if body.learner not in {item["id"] for item in learner_accounts()}:
+            raise HTTPException(403, "Select an enrolled learner")
         perform(lambda: engine().assign(current, course, body.learner, body.active))
-        return {'saved': True}
+        return {"saved": True}
 
-    @router.post('/courses/{course}/lessons/{lesson}/answer')
+    @router.post("/courses/{course}/lessons/{lesson}/answer")
     def answer(course: str, lesson: str, body: Answer, current=Depends(actor)):
-        return perform(lambda: engine().respond(current, course, lesson, body.answer, body.request_id))
+        return perform(
+            lambda: engine().respond(current, course, lesson, body.answer, body.request_id)
+        )
 
-    @router.post('/courses/{course}/lessons/{lesson}/draft')
+    @router.post("/courses/{course}/lessons/{lesson}/draft")
     def draft(course: str, lesson: str, body: Draft, current=Depends(actor)):
         perform(lambda: engine().save_draft(current, course, lesson, body.text))
-        return {'saved': True}
+        return {"saved": True}
 
-    @router.post('/submissions/{submission}/review')
+    @router.post("/submissions/{submission}/review")
     def review(submission: str, body: Review, current=Depends(parent)):
         perform(lambda: engine().review(current, submission, body.approve, body.feedback))
-        return {'saved': True}
+        return {"saved": True}
 
     return router

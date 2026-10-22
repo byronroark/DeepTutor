@@ -445,8 +445,10 @@ async def require_auth(
     of #481.
     """
     if not AUTH_ENABLED:
-        if os.environ.get('FAMILY_LEARNING_LOCAL_ONLY') == '1':
-            raise HTTPException(status_code=401, detail='Local Family Learning requires authentication')
+        if os.environ.get("FAMILY_LEARNING_LOCAL_ONLY") == "1":
+            raise HTTPException(
+                status_code=401, detail="Local Family Learning requires authentication"
+            )
         _install_current_user(None)
         _install_request_workspace(request)
         return None
@@ -469,10 +471,13 @@ async def require_auth(
 
     from deeptutor.family_learning.access import learner_route_allowed
 
-    if not learner_route_allowed(local_only=os.environ.get('FAMILY_LEARNING_LOCAL_ONLY') == '1',
-                                 auth_enabled=AUTH_ENABLED, role=payload.role,
-                                 path=getattr(getattr(request, 'url', None), 'path', '')):
-        raise HTTPException(status_code=403, detail='This account uses assigned local lessons only')
+    if not learner_route_allowed(
+        local_only=os.environ.get("FAMILY_LEARNING_LOCAL_ONLY") == "1",
+        auth_enabled=AUTH_ENABLED,
+        role=payload.role,
+        path=getattr(getattr(request, "url", None), "path", ""),
+    ):
+        raise HTTPException(status_code=403, detail="This account uses assigned local lessons only")
     _install_current_user(payload)
     _install_request_workspace(request)
     return payload
@@ -576,9 +581,13 @@ async def ws_require_auth(ws: WebSocket) -> _CtxToken | _WsAuthFailed:
             return ws_auth_failed
     from deeptutor.family_learning.access import learner_route_allowed
 
-    if not learner_route_allowed(local_only=os.environ.get('FAMILY_LEARNING_LOCAL_ONLY') == '1',
-                                 auth_enabled=AUTH_ENABLED, role=getattr(payload, 'role', ''),
-                                 path=ws.url.path, websocket=True):
+    if not learner_route_allowed(
+        local_only=os.environ.get("FAMILY_LEARNING_LOCAL_ONLY") == "1",
+        auth_enabled=AUTH_ENABLED,
+        role=getattr(payload, "role", ""),
+        path=ws.url.path,
+        websocket=True,
+    ):
         await ws.close(code=4003)
         return ws_auth_failed
     user_token = _install_current_user(payload)
