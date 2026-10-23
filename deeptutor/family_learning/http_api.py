@@ -146,6 +146,10 @@ def create_router(
         perform(lambda: engine().save_draft(current, course, lesson, body.text))
         return {"saved": True}
 
+    @router.get("/courses/{course}/lessons/{lesson}/hint")
+    def hint(course: str, lesson: str, index: int = 0, current=Depends(actor)):
+        return perform(lambda: engine().coding_hint(current, course, lesson, index))
+
     @router.post("/courses/{course}/lessons/{lesson}/python")
     def python(course: str, lesson: str, body: PythonAnswer, current=Depends(actor)):
         def run():

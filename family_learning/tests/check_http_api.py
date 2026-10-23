@@ -74,6 +74,36 @@ class HttpTests(unittest.TestCase):
         self.enabled = False
         self.assertEqual(self.client.get(self.base).status_code, 404)
 
+    def test_coding_hint_is_assigned_read_only_and_does_not_run_code(self):
+        lesson = self.course["lessons"][0]
+        lesson.update(
+            kind="python",
+            expected_output="7",
+            starter_code="print(7)",
+            requirements=[],
+            hints=["Use print.", "Keep your indentation."],
+        )
+        lesson.pop("answer", None)
+        lesson.pop("choices", None)
+        key = self.publish_assign()
+        self.token = SimpleNamespace(user_id="child-a", role="user")
+        path = f"{self.base}/courses/{key}/lessons/{lesson['id']}/hint"
+        self.assertEqual(self.client.get(path).json(), {"hint": "Use print.", "has_more": True})
+        self.assertEqual(
+            self.client.get(path + "?index=1").json(),
+            {"hint": "Keep your indentation.", "has_more": False},
+        )
+        self.assertEqual(self.client.get(path + "?index=-1").status_code, 409)
+        locked = self.course["lessons"][1]["id"]
+        self.assertEqual(
+            self.client.get(f"{self.base}/courses/{key}/lessons/{locked}/hint").status_code, 403
+        )
+        with self.engine.db() as db:
+            self.assertEqual(db.execute("SELECT count(*) FROM work").fetchone()[0], 0)
+        self.python_executor.assert_not_called()
+        self.token = SimpleNamespace(user_id="other-child", role="user")
+        self.assertEqual(self.client.get(path).status_code, 403)
+
     def test_csrf_and_form_submission_refused(self):
         for headers in [
             {},

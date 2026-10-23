@@ -253,6 +253,17 @@ class Lessons:
             data, lessons, _ = self.current(db, actor, course)
             return {**data, "lessons": lessons}
 
+    def coding_hint(self, actor, course, lesson, index=0):
+        if not isinstance(index, int) or not 0 <= index < 10:
+            raise ValueError("Invalid hint number")
+        with self.db() as db:
+            _, _, item = self.current(db, actor, course, lesson)
+            if item["kind"] != "python":
+                raise ValueError("This is not a Python exercise")
+            hints = item["hints"] or ["Review the explanation, or ask your parent for help."]
+            position = min(index, len(hints) - 1)
+            return {"hint": hints[position], "has_more": position + 1 < len(hints)}
+
     def catalog(self, actor):
         with self.db() as db:
             if actor.role == "parent":

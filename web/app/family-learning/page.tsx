@@ -35,6 +35,7 @@ export default function FamilyLearningPage() {
   const [exerciseType, setExerciseType] = useState('number')
   const [executions,setExecutions] = useState<Record<string,Execution>>({})
   const pendingRuns = useRef<Record<string,{code:string;id:string}>>({})
+  const [codingHints,setCodingHints] = useState<Record<string,{items:string[];more:boolean}>>({})
   const load = useCallback(async () => {
     const overview = await request<{role: string; courses: Summary[]}>('')
     setRole(overview.role); setCourses(overview.courses)
@@ -140,6 +141,11 @@ export default function FamilyLearningPage() {
               {lesson.kind==='choice'?<fieldset><legend>Choose your answer</legend>{lesson.choices?.map((choice,index)=><label key={index} className="block p-2"><input type="radio" name={lesson.id} checked={answers[lesson.id]===String(index)} onChange={()=>setAnswers({...answers,[lesson.id]:String(index)})}/> {choice}</label>)}</fieldset>:
                 <label className="block">{lesson.kind==='python'?'Your Python program':'Your answer'}<textarea disabled={busy} className={field+(lesson.kind==='python'?' font-mono':'')} spellCheck={lesson.kind!=='python'} rows={lesson.kind==='python'?8:4} maxLength={lesson.kind==='python'?16384:20000} value={answers[lesson.id]??''} onChange={event=>setAnswers({...answers,[lesson.id]:event.target.value})}/></label>}
               {['writing','python'].includes(lesson.kind??'') && <button className={button} disabled={busy} onClick={()=>void action(async()=>{await request(`/courses/${selected}/lessons/${lesson.id}/draft`,{text:answers[lesson.id]??''});setMessage(lesson.kind==='python'?'Program saved on this computer.':'Draft saved on this computer.')})}>{lesson.kind==='python'?'Save program':'Save draft'}</button>}
+              {lesson.kind==='python' && <button className={button} disabled={busy || codingHints[selected+':'+lesson.id]?.more===false} onClick={()=>void action(async()=>{
+                const key=selected+':'+lesson.id,items=codingHints[key]?.items??[]
+                const result=await request<{hint:string;has_more:boolean}>(`/courses/${selected}/lessons/${lesson.id}/hint?index=${items.length}`)
+                setCodingHints(previous=>({...previous,[key]:{items:[...items,result.hint],more:result.has_more}}))
+              })}>{codingHints[selected+':'+lesson.id]?.more===false?'All hints shown':codingHints[selected+':'+lesson.id]?'Next hint':'Show hint'}</button>}
               <button className={button} disabled={busy || !answers[lesson.id]?.trim()} onClick={()=>void action(async()=>{
                 if(lesson.kind==='python'){
                   setMessage('Running your program…')
@@ -158,6 +164,7 @@ export default function FamilyLearningPage() {
               })}>{lesson.kind==='writing'?'Send to parent':lesson.kind==='python'?'Run Python exercise':'Check my answer'}</button>
             </>}
             {lesson.feedback && <p role="status">{lesson.feedback}</p>}
+            {codingHints[selected+':'+lesson.id] && <aside aria-label="Coding hints" role="note" className="space-y-2 rounded-lg border border-current/20 p-3">{codingHints[selected+':'+lesson.id].items.map((hint,index)=><p key={index}>Hint {index+1}: {hint}</p>)}</aside>}
             {executions[selected+':'+lesson.id] && <section aria-label="Program result"><p>{({finished:'Program finished',error:'Check your program',time_limit:'Time limit reached — try a smaller loop',output_limit:'Too much printed output — try a smaller loop',syntax_feedback:'Check your Python syntax'} as Record<string,string>)[executions[selected+':'+lesson.id].execution]||'Program result'}</p><pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-lg border border-current/20 p-3">{executions[selected+':'+lesson.id].output||'(No printed output)'}</pre></section>}
           </>}
         </>}

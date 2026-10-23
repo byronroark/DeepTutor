@@ -13,6 +13,23 @@ const response = (data: unknown, ok=true) => ({ok,json:async()=>data})
 
 beforeEach(()=>vi.clearAllMocks())
 
+it('reveals a prepared coding hint without running or changing the program',async()=>{
+  mock.fetch.mockImplementation(async(path:string)=>{
+    if(path.includes('/hint?index=0'))return response({hint:'Keep print inside the loop.',has_more:false})
+    if(path.endsWith('/courses/python-hint'))return response({title:'Loops',subject:'Python',objectives:[],lessons:[{id:'loop',title:'Repeat',kind:'python',starter_code:'for n in range(3):\n pass',unlocked:true,state:'new'}]})
+    return response({role:'learner',courses:[{id:'python-hint',title:'Loops',subject:'Python'}]})
+  })
+  render(<FamilyLearningPage/>)
+  fireEvent.click(await screen.findByRole('button',{name:'Loops'}))
+  const editor=await screen.findByLabelText('Your Python program')
+  fireEvent.change(editor,{target:{value:'print(42)'}})
+  fireEvent.click(screen.getByRole('button',{name:'Show hint'}))
+  expect(await screen.findByText('Hint 1: Keep print inside the loop.')).toBeTruthy()
+  expect((editor as HTMLTextAreaElement).value).toBe('print(42)')
+  expect(screen.getByRole('button',{name:'All hints shown'}).hasAttribute('disabled')).toBe(true)
+  expect(mock.fetch.mock.calls.some(([path])=>String(path).endsWith('/python'))).toBe(false)
+})
+
 it('starts a fresh attempt after the broker reports an interrupted run',async()=>{
   const ids:string[]=[]
   mock.fetch.mockImplementation(async(path:string,init?:RequestInit)=>{

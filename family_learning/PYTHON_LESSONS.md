@@ -80,6 +80,12 @@ host broker; it is not enabled at boot or exposed to the household LAN.
 
 ## Verification
 
+Learners can choose **Show hint**, then **Next hint** when more prepared hints
+exist, before running their program. The read-only hint endpoint checks active
+assignment and sequential unlocks. It never executes code, records an attempt,
+changes a draft, or awards a grade. Hints come only from the parent-owned lesson;
+no model is contacted. Parent review continues to show the full hint list.
+
 Unit checks cover correct/wrong output, syntax requirements, resource failures,
 replay, assignment isolation, revocation/re-enrollment during execution, rate
 limits, pending jobs and explicit draft saves. Socket tests verify scoped
