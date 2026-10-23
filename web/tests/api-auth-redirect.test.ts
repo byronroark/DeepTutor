@@ -64,6 +64,23 @@ function tick(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+test("background 401s never reload an already-open authentication page", async () => {
+  const { apiFetch, setRuntimeAuthEnabled } = await loadApiModule();
+  setRuntimeAuthEnabled(true);
+  for (const path of ["/login", "/register"]) {
+    const win = installWindow(path, "?next=%2Ffamily-learning");
+    const restore = stubFetch(jsonResponse(401, { detail: "Sign in required" }));
+    try {
+      const result = await apiFetch("http://localhost:8001/api/settings/interface");
+      assert.equal(result.status, 401);
+      assert.equal(win.redirectedTo(), null);
+    } finally {
+      restore();
+      clearWindow();
+    }
+  }
+});
+
 test("apiFetch redirects to /login on 401 when auth is enabled and no opt-out", async () => {
   const { apiFetch, setRuntimeAuthEnabled } = await loadApiModule();
   setRuntimeAuthEnabled(true);
