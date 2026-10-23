@@ -1,0 +1,45 @@
+name: Family Learning offline checks
+on:
+  push:
+    paths: ['family_learning/**', 'deeptutor/family_learning/**', 'deeptutor/api/routers/family_learning.py', 'deeptutor/api/routers/auth.py', 'deeptutor/api/main.py', 'web/app/family-learning/**', 'web/tests/family-learning.spec.tsx', 'web/tests/course-import.spec.tsx', 'web/tests/retakes.spec.tsx', '.github/workflows/family-learning.yml']
+  pull_request:
+    paths: ['family_learning/**', 'deeptutor/family_learning/**', 'deeptutor/api/routers/family_learning.py', 'deeptutor/api/routers/auth.py', 'deeptutor/api/main.py', 'web/app/family-learning/**', 'web/tests/family-learning.spec.tsx', 'web/tests/course-import.spec.tsx', 'web/tests/retakes.spec.tsx', '.github/workflows/family-learning.yml']
+permissions:
+  contents: read
+jobs:
+  local-learning:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Local lessons and parent review
+        run: python3 -B family_learning/tests/check_local_lessons.py
+      - name: Local-only learner boundary and Python lesson syntax
+        run: python3 -B family_learning/tests/check_local_access.py && python3 -B family_learning/tests/check_python_runner.py
+      - name: Assignment-aware Python grading and scoped Unix broker
+        run: python3 -B family_learning/tests/check_python_grading.py && python3 -B family_learning/tests/check_python_broker.py
+      - name: Pull pinned Python acceptance image
+        run: docker pull python@sha256:cb33f7f771ecec2ef1225cf39b159591a040391bd73e4c01f00fdfc4c47611d2
+      - name: Disposable Python container acceptance
+        run: FAMILY_PYTHON_LIVE_TEST=1 python3 -B family_learning/tests/check_python_runner.py
+      - name: Authenticated lesson routes
+        run: |
+          python3 -m venv /tmp/family-learning-ci
+          /tmp/family-learning-ci/bin/pip install fastapi==0.159.1 httpx==0.28.1
+          /tmp/family-learning-ci/bin/python -B family_learning/tests/check_http_api.py
+          /tmp/family-learning-ci/bin/python -B family_learning/tests/check_pilot_safety.py
+      - name: Notification timing
+        run: python3 -B family_learning/tests/check_escalation.py
+      - name: Parent-only OpenAI proxy boundaries
+        run: python3 -B family_learning/tests/check_parent_cloud.py
+      - name: Weekly allowance
+        run: python3 -B family_learning/tests/check_weekly_budget.py
+      - name: Restricted gateway
+        run: python3 -B family_learning/tests/check_luna_gateway.py
+      - name: Private setup
+        run: python3 -B family_learning/tests/check_tutor_setup.py
+      - name: Install frontend test dependencies
+        working-directory: web
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Lesson and parent review screens
+        working-directory: web
+        run: npx vitest run tests/family-learning.spec.tsx tests/course-import.spec.tsx tests/retakes.spec.tsx

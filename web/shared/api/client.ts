@@ -39,7 +39,8 @@ export async function apiFetch(
     response.status === 401 &&
     runtimeAuthEnabled &&
     !skipAuthRedirect &&
-    typeof window !== "undefined"
+    typeof window !== "undefined" &&
+    !/^\/(?:login|register)(?:\/|$)/.test(window.location.pathname)
   ) {
     window.location.href = loginHref(browserReturnPath(window.location));
     return new Promise(() => {});

@@ -63,6 +63,16 @@ export function isAuthExempt(pathname: string): boolean {
 
 export type TokenState = "missing" | "malformed" | "expired" | "valid";
 
+// Navigation hint only: the backend independently verifies the signature and
+// administrator role before serving any protected data or action.
+export function needsFamilyLearningRedirect(token: string | undefined): boolean {
+  try {
+    return JSON.parse(Buffer.from((token ?? "").split(".")[1], "base64url").toString("utf-8")).role !== "admin";
+  } catch {
+    return true;
+  }
+}
+
 // Classify the auth cookie WITHOUT trusting its signature — the middleware is a
 // cheap front-line gate, not the authority (the backend does real verification
 // on every API call). `nowMs` is injected rather than read from the clock so

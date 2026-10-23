@@ -30,6 +30,7 @@ import type { ReadingCollectionLabel } from "@/lib/reading-workspace-api";
 import type { StudyCourse } from "@/lib/courses-api";
 import { useSidebarResize } from "@/hooks/useSidebarResize";
 import { SidebarHome, SidebarNav } from "@/components/sidebar/SidebarNav";
+import { FamilyLearningLink } from "@/components/sidebar/FamilyLearningLink";
 import { SECONDARY_NAV, isNavActive } from "@/components/sidebar/nav-entries";
 import Tooltip from "@/shared/ui/Tooltip";
 import {
@@ -211,6 +212,7 @@ export function SidebarShell({
         </div>
 
         <SidebarHome collapsed onHomeClick={handleHomeClick} />
+        <FamilyLearningLink collapsed onNavigate={closeDrawerOnNav} />
         <div className="min-h-0 w-full flex-1 overflow-y-auto overscroll-contain">
           <SidebarNav
             collapsed
@@ -285,6 +287,7 @@ export function SidebarShell({
       </div>
 
       <SidebarHome onHomeClick={handleHomeClick} />
+      <FamilyLearningLink onNavigate={closeDrawerOnNav} />
 
       {/* Modules and conversations share one scroll region below Home. */}
       <div

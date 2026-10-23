@@ -46,6 +46,81 @@
 
 > 🤝 **We welcome any kinds of contributing!** Vote on roadmap items or propose new ones at [`Roadmap`](https://github.com/HKUDS/DeepTutor/issues/498), and see our [Contributing Guide](CONTRIBUTING.md) for branching strategy, coding standards, and how to get started.
 
+## Family Learning: bring lessons from your AI chat
+
+This fork includes parent-reviewed local courses. Use any AI chat tool to prepare
+the material; DeepTutor does not connect to that account or send it learner work.
+With the [local pilot](family_learning/PILOT.md) running, sign in as a parent and
+open **Family Learning → Prepare lessons → Import an AI-prepared course**.
+Upload a `.json` file or paste its contents, choose **Validate and review**, inspect
+every explanation, exercise, hint and answer, then **Publish reviewed course**.
+Choose **Assign to** separately. Nothing is assigned or executed during import.
+
+Copy this context into your preferred AI chat, replacing the bracketed details:
+
+```text
+Prepare a self-contained Family Learning course for a learner aged [age],
+at [experience level], interested in [theme]. Teach [subject and concepts]
+in [number] short, sequential exercises of about [minutes] minutes each.
+Use [language], explain one idea at a time, include practice and a final recap,
+and write 2–3 progressive hints plus encouraging prepared success feedback.
+Use fictional examples; do not request the child's name or personal details.
+
+Return ONLY one valid JSON object, without Markdown fences or commentary:
+{"format":"family-learning-course","version":1,"course":{
+  "title":"Course title","subject":"Python","objectives":["Learning objective"],
+  "lessons":[{"id":"unique-lowercase-slug","title":"Exercise title",
+    "kind":"python","explanation":"Explain the idea.",
+    "question":"State the concrete task.","hints":["A small clue","A stronger clue"],
+    "success":"Explain what the learner accomplished.",
+    "starter_code":"stars = 3\n# Print stars below\n",
+    "expected_output":"3\n","requirements":["assignment"]}]
+}}
+
+Replace that example with the requested complete course. Keep the same field
+names and use unique lesson IDs. Include no extra metadata or solution field.
+For Python, support only basic variables, arithmetic, comparisons, if/else,
+for/while, lists/tuples, indexing, and these calls: print, range, len, str, int,
+float, round, min, max, sum, abs. No imports, input(), functions/classes,
+f-strings, attribute/method calls, keyword arguments, files, network, packages,
+or graphics. Programs must finish quickly and print deterministic output.
+Requirements may contain only assignment, for_loop, or while_loop. Use valid
+starter syntax with pass or comments for missing work. Match printed output
+exactly, including spaces and line breaks. Mentally check a solution for every
+exercise, but do not include solution code in the learner explanation or starter.
+Keep the file below 1 MB with at most 100 exercises. Escape code newlines as
+JSON \n. Do not insert URLs, HTML, tracking, or external lesson dependencies.
+```
+
+Save the response as `my-course.json`, or paste the raw JSON into the importer.
+If validation rejects it, give the error and format instructions back to the AI
+and ask for a corrected complete file. Changing the JSON clears the review.
+Validation checks structure and supported starter syntax; you still review
+accuracy, difficulty and the expected answers before publishing. Syntax checks
+and output matching are practice aids, not proof of understanding.
+
+See the [complete format and import guide](family_learning/COURSE_IMPORT.md),
+[valid two-exercise example](family_learning/example-course.json), and
+[Python lesson details](family_learning/PYTHON_LESSONS.md). The pilot remains
+local-only until separate household deployment acceptance.
+
+### Retaking lessons without losing results
+
+On an assigned course, parents can use **Start a retake** to choose a learner
+and either one lesson or the whole course. Confirm preservation of previous
+results, then choose **Retake lesson** or **Retake course**. The learner refreshes
+the course to begin again. **Previous results** is available to the parent and
+that learner, including dated pass/retry/review outcomes, feedback and number
+of tries. Current lessons show tries for the new attempt. Numeric or letter
+grades are not currently calculated; compare completion and tries instead.
+
+A single-lesson retake preserves later results but locks those lessons until
+the prerequisite is passed again. A course retake restarts all its lessons.
+Original writing remains saved; an earlier pending submission is archived and
+cannot grade a new attempt. Running Python results are discarded if a parent
+starts a retake while execution is in progress. Retakes never execute code or
+silently reassign a learner. Only the parent who owns the course can start one.
+
 ### 📦 Releases
 
 > **[2026.10.19]** [v1.6.15](https://github.com/HKUDS/DeepTutor/releases/tag/v1.6.15) — Reviewed learning-path changes, grouped assessments, bounded tutoring memory, reliable chat recovery, sturdier parsing, retrieval comparisons, and native Gemini speech.

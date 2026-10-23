@@ -12,6 +12,7 @@ import {
   isCodexCallbackPath,
   isRetiredPagePath,
   isWebSocketPath,
+  needsFamilyLearningRedirect,
 } from "./lib/proxy-policy";
 
 // Backend base URL for `/api/*` and `/ws/*` rewrites. The container entrypoint
@@ -86,6 +87,10 @@ export function proxy(req: NextRequest): NextResponse {
   const token = req.cookies.get(COOKIE_NAME)?.value;
   if (classifyToken(token, Date.now()) !== "valid") {
     return redirectToLogin(req, { clearCookie: Boolean(token) });
+  }
+
+  if (process.env.FAMILY_LEARNING_LOCAL_ONLY === '1' && pathname !== '/family-learning' && needsFamilyLearningRedirect(token)) {
+    return NextResponse.redirect(new URL('/family-learning', req.nextUrl));
   }
 
   return NextResponse.next();

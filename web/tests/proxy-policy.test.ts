@@ -20,6 +20,7 @@ import {
   isCodexCallbackPath,
   isRetiredPagePath,
   isWebSocketPath,
+  needsFamilyLearningRedirect,
 } from "../lib/proxy-policy";
 import { prepareBackendForwardHeaders } from "../lib/backend-forward";
 
@@ -28,6 +29,13 @@ function makeToken(payload: Record<string, unknown>): string {
     Buffer.from(JSON.stringify(value)).toString("base64url");
   return `${encode({ alg: "HS256" })}.${encode(payload)}.signature`;
 }
+
+test("family learning confines learner navigation while preserving parent dashboard access", () => {
+  assert.equal(needsFamilyLearningRedirect(makeToken({role:"admin"})),false);
+  for (const token of [makeToken({role:"user"}),makeToken({role:"learner"}),makeToken({}),"broken",undefined]) {
+    assert.equal(needsFamilyLearningRedirect(token),true);
+  }
+});
 
 test("isBackendPath matches /api and /ws paths only", () => {
   assert.equal(isBackendPath("/api/knowledge-bases"), true);

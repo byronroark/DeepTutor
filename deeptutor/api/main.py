@@ -1,6 +1,7 @@
 import asyncio
 from contextlib import asynccontextmanager
 import logging
+import os
 import sys
 
 from fastapi import Depends, FastAPI, Request
@@ -602,6 +603,22 @@ _auth = [Depends(require_learning_surface)]
 # process-wide, so management is admin-gated in multi-user deployments
 # (single-user local runs are implicitly admin — no behaviour change there).
 _admin = [Depends(require_admin)]
+
+from deeptutor.api.routers.family_learning import router as family_learning_router
+
+app.include_router(family_learning_router, prefix="/api/family-learning", tags=["family-learning"])
+
+from deeptutor.family_learning.firewall import LocalLearningFirewall
+from deeptutor.services.auth import AUTH_ENABLED as _family_auth_enabled
+from deeptutor.services.auth import decode_token as _family_decode
+
+app.add_middleware(
+    LocalLearningFirewall,
+    enabled=lambda: os.environ.get("FAMILY_LEARNING_LOCAL_ONLY") == "1",
+    auth_enabled=lambda: _family_auth_enabled,
+    decode_token=_family_decode,
+    parent_callback=lambda: os.environ.get("FAMILY_PARENT_CLOUD") == "1",
+)
 
 app.include_router(
     multi_user_router,
