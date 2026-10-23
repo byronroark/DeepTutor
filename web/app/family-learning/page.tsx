@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiFetch } from '@/shared/api/client'
+import CourseImport from './CourseImport'
 
 type Summary = { id: string; title: string; subject: string }
 type Lesson = { id: string; title: string; explanation?: string; question?: string; kind?: string; choices?: string[]; rubric?: string[]; answer?: string | number; hints?: string[]; success?: string; starter_code?: string; expected_output?: string; requirements?: string[]; unlocked?: boolean; state?: string; feedback?: string; draft?: string }
@@ -70,6 +71,7 @@ export default function FamilyLearningPage() {
     {role === 'parent' && <section className="space-y-3 rounded-xl border border-current/20 p-5">
       <h2 className="text-xl font-semibold">Prepare lessons</h2>
       <p>Add the starter lessons, review their material, then assign them individually.</p>
+      <CourseImport onPublished={async(id)=>{await load();await open(id);setMessage('Course imported privately. Review it and choose a learner to assign it.')}}/>
       <button className={button} disabled={busy} onClick={() => void action(async () => {
         for (const starter of await request<Course[]>('/starters')) await request('/courses', starter)
         await load(); setMessage('Starter lessons added for review. Nothing was assigned automatically.')

@@ -65,6 +65,69 @@ class HttpTests(unittest.TestCase):
         self.assertEqual(assigned.status_code, 200)
         return key
 
+    def test_import_preview_publish_and_no_automatic_assignment(self):
+        document = {"format": "family-learning-course", "version": 1, "course": self.course}
+        path = self.base + "/imports/"
+        preview = self.client.post(path + "preview", json=document, headers=self.headers)
+        self.assertEqual(preview.status_code, 200, preview.text)
+        self.assertEqual(preview.json()["course"], self.course)
+        self.assertEqual(self.engine.catalog(Actor("parent-a", "parent")), [])
+        saved = self.client.post(path + "publish", json=document, headers=self.headers)
+        self.assertEqual(saved.status_code, 200, saved.text)
+        self.assertEqual(
+            self.client.post(path + "publish", json=document, headers=self.headers).json(),
+            saved.json(),
+        )
+        with self.engine.db() as db:
+            self.assertEqual(db.execute("SELECT count(*) FROM courses").fetchone()[0], 1)
+            self.assertEqual(db.execute("SELECT count(*) FROM assignments").fetchone()[0], 0)
+            self.assertEqual(db.execute("SELECT count(*) FROM work").fetchone()[0], 0)
+        self.python_executor.assert_not_called()
+        self.token = SimpleNamespace(user_id="child-a", role="user")
+        for action in ("preview", "publish"):
+            self.assertEqual(
+                self.client.post(path + action, json=document, headers=self.headers).status_code,
+                403,
+            )
+
+    def test_import_rejects_invalid_versions_json_and_oversized_files(self):
+        path = self.base + "/imports/preview"
+        for text in [
+            "```json\n{}\n```",
+            '{"format":"family-learning-course","version":1,"version":1,"course":{}}',
+            json.dumps(
+                {"format": "family-learning-course", "version": True, "course": self.course}
+            ),
+            json.dumps({"format": "family-learning-course", "version": 2, "course": self.course}),
+        ]:
+            response = self.client.post(
+                path, content=text, headers={**self.headers, "Content-Type": "application/json"}
+            )
+            self.assertEqual(response.status_code, 409, response.text)
+        self.assertEqual(
+            self.client.post(
+                path,
+                content=" " * 1_000_001,
+                headers={**self.headers, "Content-Type": "application/json"},
+            ).status_code,
+            413,
+        )
+        self.assertEqual(self.engine.catalog(Actor("parent-a", "parent")), [])
+
+    def test_import_refuses_unsupported_python_without_executing_it(self):
+        lesson = self.course["lessons"][0]
+        lesson.update(kind="python", expected_output="", starter_code="import os", requirements=[])
+        lesson.pop("answer", None)
+        lesson.pop("choices", None)
+        response = self.client.post(
+            self.base + "/imports/preview",
+            json={"format": "family-learning-course", "version": 1, "course": self.course},
+            headers=self.headers,
+        )
+        self.assertEqual(response.status_code, 409, response.text)
+        self.assertIn("Starter program", response.json()["detail"])
+        self.python_executor.assert_not_called()
+
     def test_anonymous_auth_disabled_and_feature_disabled_fail_closed(self):
         self.signed_in = False
         self.assertEqual(self.client.get(self.base).status_code, 401)

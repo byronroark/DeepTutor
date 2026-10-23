@@ -1,9 +1,9 @@
 name: Family Learning offline checks
 on:
   push:
-    paths: ['family_learning/**', 'deeptutor/family_learning/**', 'deeptutor/api/routers/family_learning.py', 'deeptutor/api/routers/auth.py', 'deeptutor/api/main.py', 'web/app/family-learning/**', 'web/tests/family-learning.spec.tsx', '.github/workflows/family-learning.yml']
+    paths: ['family_learning/**', 'deeptutor/family_learning/**', 'deeptutor/api/routers/family_learning.py', 'deeptutor/api/routers/auth.py', 'deeptutor/api/main.py', 'web/app/family-learning/**', 'web/tests/family-learning.spec.tsx', 'web/tests/course-import.spec.tsx', '.github/workflows/family-learning.yml']
   pull_request:
-    paths: ['family_learning/**', 'deeptutor/family_learning/**', 'deeptutor/api/routers/family_learning.py', 'deeptutor/api/routers/auth.py', 'deeptutor/api/main.py', 'web/app/family-learning/**', 'web/tests/family-learning.spec.tsx', '.github/workflows/family-learning.yml']
+    paths: ['family_learning/**', 'deeptutor/family_learning/**', 'deeptutor/api/routers/family_learning.py', 'deeptutor/api/routers/auth.py', 'deeptutor/api/main.py', 'web/app/family-learning/**', 'web/tests/family-learning.spec.tsx', 'web/tests/course-import.spec.tsx', '.github/workflows/family-learning.yml']
 permissions:
   contents: read
 jobs:
@@ -40,4 +40,4 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Lesson and parent review screens
         working-directory: web
-        run: npx vitest run tests/family-learning.spec.tsx
+        run: npx vitest run tests/family-learning.spec.tsx tests/course-import.spec.tsx

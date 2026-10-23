@@ -7,6 +7,7 @@ from urllib.parse import urlsplit
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
+from .course_import import MAX_IMPORT_BYTES, parse_document
 from .local_lessons import Actor
 
 
@@ -117,6 +118,23 @@ def create_router(
     @router.post("/courses")
     def publish(body: dict, current=Depends(parent)):
         return {"id": perform(lambda: engine().publish(current, body))}
+
+    async def imported_course(request):
+        raw = bytearray()
+        async for chunk in request.stream():
+            raw.extend(chunk)
+            if len(raw) > MAX_IMPORT_BYTES:
+                raise HTTPException(413, "Course file must be at most 1 MB")
+        return perform(lambda: parse_document(bytes(raw)))
+
+    @router.post("/imports/preview")
+    async def import_preview(request: Request, current=Depends(parent)):
+        return {"course": await imported_course(request)}
+
+    @router.post("/imports/publish")
+    async def import_publish(request: Request, current=Depends(parent)):
+        course = await imported_course(request)
+        return {"id": perform(lambda: engine().publish(current, course))}
 
     @router.get("/courses/{course}")
     def view(course: str, current=Depends(actor)):
