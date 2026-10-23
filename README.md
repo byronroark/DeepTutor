@@ -104,6 +104,23 @@ See the [complete format and import guide](family_learning/COURSE_IMPORT.md),
 [Python lesson details](family_learning/PYTHON_LESSONS.md). The pilot remains
 local-only until separate household deployment acceptance.
 
+### Retaking lessons without losing results
+
+On an assigned course, parents can use **Start a retake** to choose a learner
+and either one lesson or the whole course. Confirm preservation of previous
+results, then choose **Retake lesson** or **Retake course**. The learner refreshes
+the course to begin again. **Previous results** is available to the parent and
+that learner, including dated pass/retry/review outcomes, feedback and number
+of tries. Current lessons show tries for the new attempt. Numeric or letter
+grades are not currently calculated; compare completion and tries instead.
+
+A single-lesson retake preserves later results but locks those lessons until
+the prerequisite is passed again. A course retake restarts all its lessons.
+Original writing remains saved; an earlier pending submission is archived and
+cannot grade a new attempt. Running Python results are discarded if a parent
+starts a retake while execution is in progress. Retakes never execute code or
+silently reassign a learner. Only the parent who owns the course can start one.
+
 ### 📦 Releases
 
 > **[2026.10.19]** [v1.6.15](https://github.com/HKUDS/DeepTutor/releases/tag/v1.6.15) — Reviewed learning-path changes, grouped assessments, bounded tutoring memory, reliable chat recovery, sturdier parsing, retrieval comparisons, and native Gemini speech.

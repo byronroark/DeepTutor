@@ -17,6 +17,14 @@ class Answer(BaseModel):
     request_id: str = Field(pattern=r"^[a-f0-9]{32}$")
 
 
+class Retake(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    learner: str = Field(min_length=1, max_length=128)
+    lesson: str | None = Field(default=None, max_length=64)
+    expected_epoch: int = Field(ge=0, strict=True)
+    request_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+
+
 class Draft(BaseModel):
     model_config = ConfigDict(extra="forbid")
     text: str = Field(max_length=20000)
@@ -152,6 +160,14 @@ def create_router(
             raise HTTPException(403, "Select an enrolled learner")
         perform(lambda: engine().assign(current, course, body.learner, body.active))
         return {"saved": True}
+
+    @router.post("/courses/{course}/retake")
+    def retake(course: str, body: Retake, current=Depends(parent)):
+        return perform(
+            lambda: engine().reset_progress(
+                current, course, body.learner, body.lesson, body.expected_epoch, body.request_id
+            )
+        )
 
     @router.post("/courses/{course}/lessons/{lesson}/answer")
     def answer(course: str, lesson: str, body: Answer, current=Depends(actor)):

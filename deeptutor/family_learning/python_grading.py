@@ -36,6 +36,10 @@ class PythonGrader:
             ).fetchone()["epoch"]
             prior = db.execute("SELECT * FROM events WHERE id=?", (request_id,)).fetchone()
             if prior:
+                if db.execute("SELECT 1 FROM retired_events WHERE id=?", (request_id,)).fetchone():
+                    raise ValueError(
+                        "This request belongs to an earlier attempt. Refresh and try again."
+                    )
                 if prior["actor"] != learner or prior["fingerprint"] != fingerprint:
                     raise ValueError("Request ID already used")
                 return json.loads(prior["result"])

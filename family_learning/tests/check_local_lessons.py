@@ -41,6 +41,82 @@ class LessonsTests(unittest.TestCase):
         restarted = Lessons(self.temp.name)
         self.assertEqual(restarted.view(self.child, self.course)["lessons"][1]["state"], "passed")
 
+    def test_lesson_retake_archives_results_and_preserves_later_work(self):
+        self.answer("name-a-value", "1")
+        old = uuid.uuid4().hex
+        self.answer("name-a-value", "0", old)
+        self.answer("use-a-value", "7")
+        request = uuid.uuid4().hex
+        result = self.engine.reset_progress(
+            self.parent, self.course, self.child.id, "name-a-value", 0, request
+        )
+        self.assertEqual(
+            result,
+            self.engine.reset_progress(
+                self.parent, self.course, self.child.id, "name-a-value", 0, request
+            ),
+        )
+        view = self.engine.view(self.child, self.course)
+        self.assertEqual(view["lessons"][0]["state"], "new")
+        self.assertFalse(view["lessons"][1]["unlocked"])
+        previous = view["history"][0]["results"][0]
+        self.assertEqual((previous["state"], previous["attempts"]), ("passed", 2))
+        self.assertNotIn("draft", previous)
+        with self.assertRaisesRegex(ValueError, "earlier attempt"):
+            self.answer("name-a-value", "0", old)
+        self.answer("name-a-value", "0")
+        view = Lessons(self.temp.name).view(self.child, self.course)
+        self.assertEqual(view["lessons"][0]["attempts"], 1)
+        self.assertEqual(view["lessons"][1]["state"], "passed")
+        self.assertEqual(len(view["history"]), 1)
+
+    def test_course_retake_and_other_learners_history_is_private(self):
+        self.answer("name-a-value", "0")
+        self.answer("use-a-value", "7")
+        other = Actor("learner-b", "learner")
+        self.engine.assign(self.parent, self.course, other.id)
+        self.engine.respond(other, self.course, "name-a-value", "0", uuid.uuid4().hex)
+        self.engine.reset_progress(
+            self.parent, self.course, self.child.id, None, 0, uuid.uuid4().hex
+        )
+        self.assertEqual(len(self.engine.view(self.child, self.course)["history"][0]["results"]), 2)
+        self.assertEqual(self.engine.view(other, self.course)["history"], [])
+        self.assertEqual(self.engine.view(other, self.course)["lessons"][0]["state"], "passed")
+
+    def test_retake_rejects_wrong_owner_learner_stale_version_and_empty_progress(self):
+        self.answer("name-a-value", "0")
+        for actor in [self.child, Actor("other-parent", "parent")]:
+            with self.assertRaises(PermissionError):
+                self.engine.reset_progress(
+                    actor, self.course, self.child.id, None, 0, uuid.uuid4().hex
+                )
+        self.engine.reset_progress(
+            self.parent, self.course, self.child.id, None, 0, uuid.uuid4().hex
+        )
+        self.answer("name-a-value", "0")
+        with self.assertRaisesRegex(ValueError, "Refresh"):
+            self.engine.reset_progress(
+                self.parent, self.course, self.child.id, None, 0, uuid.uuid4().hex
+            )
+        self.assertEqual(self.engine.view(self.child, self.course)["lessons"][0]["state"], "passed")
+
+    def test_old_pending_writing_cannot_grade_new_attempt(self):
+        self.course = self.engine.publish(self.parent, self.samples[2])
+        self.engine.assign(self.parent, self.course, self.child.id)
+        result = self.answer("book-report", "My original writing")
+        self.engine.reset_progress(
+            self.parent, self.course, self.child.id, "book-report", 0, uuid.uuid4().hex
+        )
+        with self.assertRaises(ValueError):
+            self.engine.review(self.parent, result["submission"], True, "Old approval")
+        self.assertEqual(self.engine.view(self.child, self.course)["lessons"][0]["state"], "new")
+        self.assertEqual(
+            self.engine.submissions(self.parent, self.course)[0]["writing"], "My original writing"
+        )
+        self.assertEqual(
+            self.engine.submissions(self.parent, self.course)[0]["decision"], "archived"
+        )
+
     def test_answer_keys_and_future_material_not_exposed(self):
         view = self.engine.view(self.child, self.course)
         self.assertNotIn("answer", view["lessons"][0])

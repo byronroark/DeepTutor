@@ -6,6 +6,7 @@ body. This module is not an HTTP authentication layer or a Python sandbox.
 
 from contextlib import contextmanager
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 import hashlib
 import json
@@ -160,6 +161,9 @@ class Lessons:
                 CREATE TABLE IF NOT EXISTS events(id TEXT PRIMARY KEY, actor TEXT, fingerprint TEXT, result TEXT);
                 CREATE TABLE IF NOT EXISTS submissions(id TEXT PRIMARY KEY, course TEXT,
                     learner TEXT, lesson TEXT, writing TEXT, decision TEXT, feedback TEXT);
+                CREATE TABLE IF NOT EXISTS retakes(id TEXT PRIMARY KEY, course TEXT,
+                    learner TEXT, scope TEXT, archived_at TEXT, results TEXT);
+                CREATE TABLE IF NOT EXISTS retired_events(id TEXT PRIMARY KEY);
             """)
             db.execute("BEGIN IMMEDIATE")
             if "epoch" not in {row["name"] for row in db.execute("PRAGMA table_info(assignments)")}:
@@ -251,7 +255,118 @@ class Lessons:
     def view(self, actor, course):
         with self.db() as db:
             data, lessons, _ = self.current(db, actor, course)
-            return {**data, "lessons": lessons}
+            epoch = db.execute(
+                "SELECT epoch FROM assignments WHERE course=? AND learner=?", (course, actor.id)
+            ).fetchone()["epoch"]
+            return {
+                **data,
+                "lessons": lessons,
+                "attempt_epoch": epoch,
+                "history": self.history(db, course, actor.id),
+            }
+
+    def history(self, db, course, learner=None):
+        rows = db.execute("SELECT * FROM retakes WHERE course=? ORDER BY rowid DESC", (course,))
+        return [
+            {
+                "id": row["id"],
+                "learner": row["learner"],
+                "scope": row["scope"],
+                "archived_at": row["archived_at"],
+                "results": [
+                    {key: item[key] for key in ("lesson", "state", "attempts", "feedback")}
+                    for item in json.loads(row["results"])
+                ],
+            }
+            for row in rows
+            if learner is None or row["learner"] == learner
+        ]
+
+    def reset_progress(self, actor, course, learner, lesson, expected_epoch, request_id):
+        if not isinstance(request_id, str) or not re.fullmatch(r"[a-f0-9]{32}", request_id):
+            raise ValueError("A unique retake request ID is required")
+        if type(expected_epoch) is not int or expected_epoch < 0:
+            raise ValueError("Invalid attempt version")
+        scope = lesson or "*"
+        with self.db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            content = json.loads(self.owned(db, actor, course)["content"])
+            ids = {item["id"] for item in content["lessons"]}
+            if lesson is not None and lesson not in ids:
+                raise ValueError("Unknown lesson")
+            prior = db.execute("SELECT * FROM retakes WHERE id=?", (request_id,)).fetchone()
+            if prior:
+                if (prior["course"], prior["learner"], prior["scope"]) != (course, learner, scope):
+                    raise ValueError("Retake request ID already used")
+                return {"saved": True, "id": request_id}
+            assignment = db.execute(
+                "SELECT * FROM assignments WHERE course=? AND learner=?", (course, learner)
+            ).fetchone()
+            if assignment is None or not assignment["active"]:
+                raise PermissionError("Learner is not assigned")
+            if assignment["epoch"] != expected_epoch:
+                raise ValueError("Progress changed. Refresh before starting a retake.")
+            selected = {lesson} if lesson is not None else ids
+            work = [
+                dict(row)
+                for row in db.execute(
+                    "SELECT * FROM work WHERE course=? AND learner=?", (course, learner)
+                )
+                if row["lesson"] in selected
+            ]
+            has_jobs = db.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='python_jobs'"
+            ).fetchone()
+            jobs = (
+                []
+                if not has_jobs
+                else [
+                    dict(row)
+                    for row in db.execute(
+                        "SELECT * FROM python_jobs WHERE course=? AND learner=? AND state='running'",
+                        (course, learner),
+                    )
+                    if row["lesson"] in selected
+                ]
+            )
+            if not work and not jobs:
+                raise ValueError("There is no progress to restart for this selection")
+            db.execute(
+                "INSERT INTO retakes VALUES(?,?,?,?,?,?)",
+                (
+                    request_id,
+                    course,
+                    learner,
+                    scope,
+                    datetime.now(timezone.utc).isoformat(),
+                    encoded(work),
+                ),
+            )
+            for row in db.execute(
+                "SELECT id,fingerprint FROM events WHERE actor=?", (learner,)
+            ).fetchall():
+                fingerprint = json.loads(row["fingerprint"])
+                if fingerprint[0] == course and fingerprint[1] in selected:
+                    db.execute("INSERT OR IGNORE INTO retired_events VALUES(?)", (row["id"],))
+            for item in selected:
+                db.execute(
+                    "DELETE FROM work WHERE course=? AND learner=? AND lesson=?",
+                    (course, learner, item),
+                )
+                db.execute(
+                    "UPDATE submissions SET decision='archived' WHERE course=? AND learner=? AND lesson=? AND decision='pending'",
+                    (course, learner, item),
+                )
+            db.execute(
+                "UPDATE assignments SET epoch=epoch+1 WHERE course=? AND learner=?",
+                (course, learner),
+            )
+            if has_jobs:
+                db.execute(
+                    "UPDATE python_jobs SET state='invalidated' WHERE course=? AND learner=? AND state='running'",
+                    (course, learner),
+                )
+            return {"saved": True, "id": request_id}
 
     def coding_hint(self, actor, course, lesson, index=0):
         if not isinstance(index, int) or not 0 <= index < 10:
@@ -294,7 +409,7 @@ class Lessons:
                 "assignments": [
                     dict(item)
                     for item in db.execute(
-                        "SELECT learner,active FROM assignments WHERE course=?", (course,)
+                        "SELECT learner,active,epoch FROM assignments WHERE course=?", (course,)
                     )
                 ],
                 "progress": [
@@ -308,6 +423,7 @@ class Lessons:
                     dict(item)
                     for item in db.execute("SELECT * FROM submissions WHERE course=?", (course,))
                 ],
+                "history": self.history(db, course),
             }
 
     def respond(self, actor, course, lesson_id, answer, request_id):
@@ -323,6 +439,10 @@ class Lessons:
                 raise ValueError("Use the isolated Run Python exercise action")
             prior = db.execute("SELECT * FROM events WHERE id=?", (request_id,)).fetchone()
             if prior:
+                if db.execute("SELECT 1 FROM retired_events WHERE id=?", (request_id,)).fetchone():
+                    raise ValueError(
+                        "This request belongs to an earlier attempt. Refresh and try again."
+                    )
                 if prior["actor"] != actor.id or prior["fingerprint"] != fingerprint:
                     raise ValueError("Request ID already used")
                 return json.loads(prior["result"])

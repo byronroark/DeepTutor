@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiFetch } from '@/shared/api/client'
 import CourseImport from './CourseImport'
+import { AttemptHistory, RetakeControls, type HistoryEntry } from './Retakes'
 
 type Summary = { id: string; title: string; subject: string }
-type Lesson = { id: string; title: string; explanation?: string; question?: string; kind?: string; choices?: string[]; rubric?: string[]; answer?: string | number; hints?: string[]; success?: string; starter_code?: string; expected_output?: string; requirements?: string[]; unlocked?: boolean; state?: string; feedback?: string; draft?: string }
+type Lesson = { id: string; title: string; explanation?: string; question?: string; kind?: string; choices?: string[]; rubric?: string[]; answer?: string | number; hints?: string[]; success?: string; starter_code?: string; expected_output?: string; requirements?: string[]; unlocked?: boolean; state?: string; feedback?: string; draft?: string; attempts?:number }
 type Execution = {state:string;feedback:string;execution:string;output:string}
-type Course = { title: string; subject: string; objectives: string[]; lessons: Lesson[] }
+type Course = { title: string; subject: string; objectives: string[]; lessons: Lesson[]; attempt_epoch?:number; history?:HistoryEntry[] }
 type Submission = { id: string; learner: string; writing: string; decision: string; feedback: string }
-type ParentCourse = { course: Course; assignments: { learner: string; active: number }[]; submissions: Submission[]; progress: {learner: string; lesson: string; state: string; attempts: number}[] }
+type ParentCourse = { course: Course; assignments: { learner: string; active: number; epoch?:number }[]; submissions: Submission[]; progress: {learner: string; lesson: string; state: string; attempts: number}[]; history?:HistoryEntry[] }
 type Account = { id: string; username: string }
 const base = '/api/family-learning'
 
@@ -36,6 +37,7 @@ export default function FamilyLearningPage() {
   const [exerciseType, setExerciseType] = useState('number')
   const [executions,setExecutions] = useState<Record<string,Execution>>({})
   const pendingRuns = useRef<Record<string,{code:string;id:string}>>({})
+  const attemptEpochs = useRef<Record<string,number>>({})
   const [codingHints,setCodingHints] = useState<Record<string,{items:string[];more:boolean}>>({})
   const load = useCallback(async () => {
     const overview = await request<{role: string; courses: Summary[]}>('')
@@ -48,7 +50,11 @@ export default function FamilyLearningPage() {
     const data = await request<Course | ParentCourse>(`/courses/${id}`)
     setSelected(id)
     if ('course' in data) { setParentCourse(data); setCourse(data.course) }
-    else { setParentCourse(null); setCourse(data); setAnswers(Object.fromEntries(data.lessons.map(item => [item.id, item.draft || item.starter_code || '']))) }
+    else {
+      if(attemptEpochs.current[id]!==(data.attempt_epoch??0)){setExecutions({});setCodingHints({});pendingRuns.current={}}
+      attemptEpochs.current[id]=data.attempt_epoch??0
+      setParentCourse(null); setCourse(data); setAnswers(Object.fromEntries(data.lessons.map(item => [item.id, item.draft || item.starter_code || ''])))
+    }
   }
   async function action(work: () => Promise<void>) {
     setBusy(true)
@@ -116,6 +122,7 @@ export default function FamilyLearningPage() {
         })}>{active?'Remove assignment for':'Assign to'} {account.username}</button>})}
         <h3 className="font-semibold">Progress</h3>
         {parentCourse.progress.map(item=><p key={item.learner+item.lesson}>{name(item.learner)} · {item.lesson}: {item.state} ({item.attempts} attempts)</p>)}
+        <RetakeControls key={selected} course={selected} assignments={parentCourse.assignments} lessons={course.lessons} name={name} onSaved={async()=>{await open(selected)}}/>
         <h3 className="font-semibold">Writing review</h3>
         {parentCourse.submissions.map(item=><article key={item.id} className="space-y-3 rounded-xl border border-current/20 p-4">
           <p>{name(item.learner)} · {item.decision}</p><pre className="whitespace-pre-wrap font-sans">{item.writing}</pre>
@@ -125,6 +132,7 @@ export default function FamilyLearningPage() {
             })}>{approve?'Approve writing':'Request a revision'}</button>)}</>:<p>{item.feedback}</p>}
         </article>)}
       </>}
+      <AttemptHistory entries={parentCourse?.history??course.history??[]} lessons={course.lessons} name={parentCourse?name:undefined}/>
       {course.lessons.map(lesson=><article key={selected+lesson.id} className="space-y-3 rounded-xl border border-current/20 p-5">
         <h3 className="text-xl font-semibold">{lesson.title}</h3>
         {lesson.unlocked===false?<p>Finish the earlier lesson to unlock this step.</p>:<>
@@ -157,7 +165,7 @@ export default function FamilyLearningPage() {
                   pendingRuns.current[key]={code,id}
                   let result:Execution
                   try {result=await request<Execution>(`/courses/${selected}/lessons/${lesson.id}/python`,{code,request_id:id})}
-                  catch(error){if(error instanceof Error && error.message.includes('This run was interrupted.'))delete pendingRuns.current[key];throw error}
+                  catch(error){if(error instanceof Error && (error.message.includes('This run was interrupted.')||error.message.includes('earlier attempt')))delete pendingRuns.current[key];throw error}
                   delete pendingRuns.current[key]
                   setExecutions(previous=>({...previous,[key]:result}));await open(selected);setMessage(result.feedback)
                   return
@@ -166,6 +174,7 @@ export default function FamilyLearningPage() {
               })}>{lesson.kind==='writing'?'Send to parent':lesson.kind==='python'?'Run Python exercise':'Check my answer'}</button>
             </>}
             {lesson.feedback && <p role="status">{lesson.feedback}</p>}
+            {!!lesson.attempts && <p>Tries this attempt: {lesson.attempts}</p>}
             {codingHints[selected+':'+lesson.id] && <aside aria-label="Coding hints" role="note" className="space-y-2 rounded-lg border border-current/20 p-3">{codingHints[selected+':'+lesson.id].items.map((hint,index)=><p key={index}>Hint {index+1}: {hint}</p>)}</aside>}
             {executions[selected+':'+lesson.id] && <section aria-label="Program result"><p>{({finished:'Program finished',error:'Check your program',time_limit:'Time limit reached — try a smaller loop',output_limit:'Too much printed output — try a smaller loop',syntax_feedback:'Check your Python syntax'} as Record<string,string>)[executions[selected+':'+lesson.id].execution]||'Program result'}</p><pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-lg border border-current/20 p-3">{executions[selected+':'+lesson.id].output||'(No printed output)'}</pre></section>}
           </>}

@@ -104,6 +104,26 @@ class GradingTests(unittest.TestCase):
         with self.engine.db() as db:
             self.assertEqual(db.execute("SELECT count(*) FROM work").fetchone()[0], 0)
 
+    def test_retake_during_execution_discards_old_result(self):
+        def execution(code):
+            self.engine.reset_progress(self.parent, self.key, "child", None, 0, uuid.uuid4().hex)
+            return Result("finished", "7\n", 0)
+
+        self.runner.run.side_effect = execution
+        with self.assertRaises(PermissionError):
+            self.run_program()
+        self.assertEqual(self.engine.view(self.child, self.key)["lessons"][0]["state"], "new")
+
+    def test_old_python_replay_never_completes_a_retake(self):
+        request = uuid.uuid4().hex
+        self.run_program(request=request)
+        self.engine.reset_progress(self.parent, self.key, "child", None, 0, uuid.uuid4().hex)
+        with self.assertRaisesRegex(ValueError, "earlier attempt"):
+            self.run_program(request=request)
+        self.assertEqual(self.engine.view(self.child, self.key)["lessons"][0]["state"], "new")
+        self.assertEqual(self.run_program()["state"], "passed")
+        self.assertEqual(self.runner.run.call_count, 2)
+
     def test_revoke_then_reassign_during_run_also_discards_result(self):
         def execution(code):
             self.engine.assign(self.parent, self.key, "child", False)

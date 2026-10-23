@@ -65,6 +65,35 @@ class HttpTests(unittest.TestCase):
         self.assertEqual(assigned.status_code, 200)
         return key
 
+    def test_retake_is_parent_only_and_history_reaches_learner(self):
+        key = self.publish_assign()
+        self.engine.respond(Actor("child-a", "learner"), key, "name-a-value", "0", uuid.uuid4().hex)
+        body = {
+            "learner": "child-a",
+            "lesson": None,
+            "expected_epoch": 0,
+            "request_id": uuid.uuid4().hex,
+        }
+        path = f"{self.base}/courses/{key}/retake"
+        self.token = SimpleNamespace(user_id="child-a", role="user")
+        self.assertEqual(self.client.post(path, json=body, headers=self.headers).status_code, 403)
+        self.token = SimpleNamespace(user_id="parent-a", role="admin")
+        self.assertEqual(
+            self.client.post(
+                path, json=body, headers={"Origin": "http://other.example"}
+            ).status_code,
+            403,
+        )
+        response = self.client.post(path, json=body, headers=self.headers)
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(
+            self.client.post(path, json=body, headers=self.headers).json(), response.json()
+        )
+        self.token = SimpleNamespace(user_id="child-a", role="user")
+        view = self.client.get(f"{self.base}/courses/{key}").json()
+        self.assertEqual(view["lessons"][0]["state"], "new")
+        self.assertEqual(view["history"][0]["results"][0]["state"], "passed")
+
     def test_import_preview_publish_and_no_automatic_assignment(self):
         document = {"format": "family-learning-course", "version": 1, "course": self.course}
         path = self.base + "/imports/"
