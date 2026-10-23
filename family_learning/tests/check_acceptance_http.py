@@ -9,7 +9,9 @@ from urllib.error import HTTPError
 from urllib.request import HTTPCookieProcessor, Request, build_opener
 import uuid
 
-BASE = "http://127.0.0.1:3783"
+BASE = os.environ.get("FAMILY_TEST_BASE", "http://127.0.0.1:3783")
+if not BASE.startswith("http://127.0.0.1:") or not BASE.rsplit(":", 1)[1].isdigit():
+    raise ValueError("Disposable acceptance must use a loopback port")
 
 
 class Client:
@@ -112,10 +114,17 @@ class AcceptanceTests(unittest.TestCase):
         raised.exception.close()
 
     def test_local_only_blocks_learner_settings_api(self):
-        with self.assertRaises(HTTPError) as raised:
-            self.child.call("/api/settings")
-        self.assertEqual(raised.exception.code, 403)
-        raised.exception.close()
+        for path in [
+            "/api/settings",
+            "/files/outputs/private",
+            "/api/knowledge-bases",
+            "/api/auth/register",
+            "/api/auth/openai-codex/start",
+        ]:
+            with self.assertRaises(HTTPError) as raised:
+                self.child.call(path)
+            self.assertEqual(raised.exception.code, 403, path)
+            raised.exception.close()
 
     @unittest.skipUnless(
         os.environ.get("FAMILY_PYTHON_HTTP_TEST") == "1", "explicit host-broker acceptance only"

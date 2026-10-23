@@ -26,7 +26,8 @@ An authenticated attempt to open the actual `/ws` AI chat socket was rejected
 with HTTP 403 before upgrade. Browser checks covered assignment, prepared
 feedback, correct-answer unlock, custom number-exercise authoring, parent-only
 answer/hint preview and sign-out. These observations do not replace the
-remaining audit of all public routes or household acceptance.
+separate household acceptance. The later default-deny route audit, interrupted
+runner recovery, and installation/rollback acceptance are recorded in [PILOT.md](PILOT.md).
 
 ## Host-side Python primitive
 

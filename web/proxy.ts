@@ -88,6 +88,10 @@ export function proxy(req: NextRequest): NextResponse {
     return redirectToLogin(req, { clearCookie: Boolean(token) });
   }
 
+  if (process.env.FAMILY_LEARNING_LOCAL_ONLY === '1' && pathname !== '/family-learning') {
+    return NextResponse.redirect(new URL('/family-learning', req.nextUrl));
+  }
+
   return NextResponse.next();
 }
 

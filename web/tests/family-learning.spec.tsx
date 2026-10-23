@@ -13,6 +13,27 @@ const response = (data: unknown, ok=true) => ({ok,json:async()=>data})
 
 beforeEach(()=>vi.clearAllMocks())
 
+it('starts a fresh attempt after the broker reports an interrupted run',async()=>{
+  const ids:string[]=[]
+  mock.fetch.mockImplementation(async(path:string,init?:RequestInit)=>{
+    if(path.endsWith('/python')){
+      ids.push(JSON.parse(String(init?.body)).request_id)
+      return ids.length===1?response({detail:'This run was interrupted. Run again to start a new attempt.'},false):response({state:'passed',feedback:'Recovered!',output:'7\n',execution:'finished'})
+    }
+    if(path.endsWith('/courses/python-a'))return response({title:'Python lab',subject:'Python',objectives:[],lessons:[{id:'program',title:'Stars',question:'Print 7.',kind:'python',starter_code:'print(7)',unlocked:true,state:'new'}]})
+    return response({role:'learner',courses:[{id:'python-a',title:'Python lab',subject:'Python'}]})
+  })
+  render(<FamilyLearningPage/>)
+  fireEvent.click(await screen.findByRole('button',{name:'Python lab'}))
+  fireEvent.click(await screen.findByRole('button',{name:'Run Python exercise'}))
+  expect(await screen.findByText('This run was interrupted. Run again to start a new attempt.')).toBeTruthy()
+  await waitFor(()=>expect(screen.getByRole('button',{name:'Run Python exercise'}).hasAttribute('disabled')).toBe(false))
+  fireEvent.click(screen.getByRole('button',{name:'Run Python exercise'}))
+  expect(await screen.findByText('Recovered!')).toBeTruthy()
+  expect(ids).toHaveLength(2)
+  expect(ids[0]).not.toBe(ids[1])
+})
+
 it('lets a learner answer, see prepared feedback and unlock the next exercise',async()=>{
   let answered=false
   mock.fetch.mockImplementation(async(path:string,init?:RequestInit)=>{

@@ -75,8 +75,8 @@ python3 -m deeptutor.family_learning.python_broker \
 The private directory must exist with mode 0700. `--initialize-token` explicitly
 creates a new mode-0600 credential and refuses to overwrite one. Never print it
 or commit it. The accepted application mounts that directory read-only and has
-no Docker socket. The host broker is not installed or enabled as a household
-service by this PR.
+no Docker socket. The optional parent-only pilot installer manages its own
+host broker; it is not enabled at boot or exposed to the household LAN.
 
 ## Verification
 
@@ -93,6 +93,6 @@ container path. It verifies wrong output/hint, correction, idempotent replay,
 unlocking and a passing loop. A real browser walkthrough also passed this
 sequence with synthetic accounts. The household installation remains unchanged.
 
-Household deployment still requires parent recovery controls, complete public
-route audit, restart/recovery acceptance and review of the installation path.
-No AI model is called and no API credit is spent.
+Recovery, the default-deny public-route boundary, and installation/rollback
+acceptance are documented in [PILOT.md](PILOT.md). Household learner deployment
+still requires separate acceptance. No AI model is called and no API credit is spent.

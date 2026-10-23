@@ -16,6 +16,7 @@ from .broker_credentials import read_token
 from .local_lessons import Lessons
 from .python_grading import PythonGrader
 from .python_runner import PythonRunner
+from .recovery import broker_lock, recover
 
 
 class Broker(
@@ -114,28 +115,32 @@ def serve(socket_path, token_path, lesson_directory):
     parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     if parent.stat().st_uid != os.getuid() or parent.stat().st_mode & 0o077:
         raise ValueError("Broker directory must be private and owned")
-    if path.exists() or path.is_symlink():
-        info = path.lstat()
-        if not stat.S_ISSOCK(info.st_mode) or info.st_uid != os.getuid():
-            raise ValueError("Refusing an unexpected socket path")
-        probe = socket.socket(socket.AF_UNIX)
-        try:
-            probe.connect(str(path))
-        except ConnectionRefusedError:
-            path.unlink()
-        else:
-            raise ValueError("A broker is already listening")
-        finally:
-            probe.close()
-    grader = PythonGrader(Lessons(lesson_directory), PythonRunner())
+    authority = Lessons(lesson_directory)
+    runner = PythonRunner()
+    grader = PythonGrader(authority, runner)
     token = read_token(token_path)
-    with Broker(str(path), Handler) as server:
-        path.chmod(0o600)
-        server.grader, server.token = grader, token
-        try:
-            server.serve_forever()
-        finally:
-            path.unlink(missing_ok=True)
+    with broker_lock():
+        if path.exists() or path.is_symlink():
+            info = path.lstat()
+            if not stat.S_ISSOCK(info.st_mode) or info.st_uid != os.getuid():
+                raise ValueError("Refusing an unexpected socket path")
+            probe = socket.socket(socket.AF_UNIX)
+            try:
+                probe.connect(str(path))
+            except ConnectionRefusedError:
+                path.unlink()
+            else:
+                raise ValueError("A broker is already listening")
+            finally:
+                probe.close()
+        recover(authority, runner.docker)
+        with Broker(str(path), Handler) as server:
+            path.chmod(0o600)
+            server.grader, server.token = grader, token
+            try:
+                server.serve_forever()
+            finally:
+                path.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

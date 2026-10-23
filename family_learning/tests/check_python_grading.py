@@ -49,6 +49,18 @@ class GradingTests(unittest.TestCase):
         self.assertTrue(view["lessons"][1]["unlocked"])
         self.assertNotIn("expected_output", view["lessons"][0])
 
+    def test_interrupted_attempt_requires_explicit_new_run(self):
+        request = uuid.uuid4().hex
+        with self.engine.db() as db:
+            db.execute(
+                "INSERT INTO python_jobs VALUES(?,?,?,?,?,?,?,?)",
+                (request, "child", self.key, "name-a-value", "fixture", 0, 0, "interrupted"),
+            )
+        with self.assertRaisesRegex(ValueError, "interrupted"):
+            self.run_program(request=request)
+        self.runner.run.assert_not_called()
+        self.assertEqual(self.run_program()["state"], "passed")
+
     def test_correct_output_without_required_assignment_does_not_pass(self):
         self.assertEqual(self.run_program("print(7)")["state"], "retry")
 

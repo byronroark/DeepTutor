@@ -147,7 +147,9 @@ export default function FamilyLearningPage() {
                   const pending=pendingRuns.current[key]
                   const id=pending?.code===code?pending.id:crypto.randomUUID().replaceAll('-','')
                   pendingRuns.current[key]={code,id}
-                  const result=await request<Execution>(`/courses/${selected}/lessons/${lesson.id}/python`,{code,request_id:id})
+                  let result:Execution
+                  try {result=await request<Execution>(`/courses/${selected}/lessons/${lesson.id}/python`,{code,request_id:id})}
+                  catch(error){if(error instanceof Error && error.message.includes('This run was interrupted.'))delete pendingRuns.current[key];throw error}
                   delete pendingRuns.current[key]
                   setExecutions(previous=>({...previous,[key]:result}));await open(selected);setMessage(result.feedback)
                   return

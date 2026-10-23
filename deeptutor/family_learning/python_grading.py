@@ -39,10 +39,13 @@ class PythonGrader:
                 if prior["actor"] != learner or prior["fingerprint"] != fingerprint:
                     raise ValueError("Request ID already used")
                 return json.loads(prior["result"])
-            if db.execute("SELECT 1 FROM python_jobs WHERE id=?", (request_id,)).fetchone():
-                raise ValueError(
-                    "This run is pending or was interrupted. Ask your parent before retrying."
-                )
+            previous = db.execute(
+                "SELECT state FROM python_jobs WHERE id=?", (request_id,)
+            ).fetchone()
+            if previous:
+                if previous["state"] == "running":
+                    raise ValueError("This program is still running. Try again shortly.")
+                raise ValueError("This run was interrupted. Run again to start a new attempt.")
             if db.execute(
                 "SELECT 1 FROM work WHERE course=? AND learner=? AND lesson=? AND state IN ('passed','review')",
                 (course, learner, lesson),

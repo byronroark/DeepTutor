@@ -8,7 +8,7 @@ import asyncio
 import ipaddress
 
 
-async def serve(target):
+async def serve(target, port=3783):
     async def connection(reader, writer):
         remote = None
         try:
@@ -33,7 +33,7 @@ async def serve(target):
             if remote:
                 remote.close()
 
-    server = await asyncio.start_server(connection, "127.0.0.1", 3783, limit=65536)
+    server = await asyncio.start_server(connection, "127.0.0.1", port, limit=65536)
     async with server:
         await server.serve_forever()
 
@@ -41,8 +41,11 @@ async def serve(target):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("container_ip")
+    parser.add_argument("--port", type=int, default=3783)
     args = parser.parse_args()
     address = ipaddress.ip_address(args.container_ip)
     if address.version != 4 or not address.is_private or address.is_loopback:
         parser.error("Use the private Docker bridge address of the test container")
-    asyncio.run(serve(str(address)))
+    if not 1024 <= args.port <= 65535:
+        parser.error("Use an unprivileged local port")
+    asyncio.run(serve(str(address), args.port))

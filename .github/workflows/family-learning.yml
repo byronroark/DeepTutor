@@ -26,6 +26,7 @@ jobs:
           python3 -m venv /tmp/family-learning-ci
           /tmp/family-learning-ci/bin/pip install fastapi==0.159.1 httpx==0.28.1
           /tmp/family-learning-ci/bin/python -B family_learning/tests/check_http_api.py
+          /tmp/family-learning-ci/bin/python -B family_learning/tests/check_pilot_safety.py
       - name: Notification timing
         run: python3 -B family_learning/tests/check_escalation.py
       - name: Weekly allowance

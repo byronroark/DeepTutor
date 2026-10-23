@@ -133,6 +133,8 @@ class PythonRunner:
             "-i",
             "--name",
             name,
+            "--label",
+            "org.family-learning.runner=1",
             "--log-driver",
             "none",
             "--network",

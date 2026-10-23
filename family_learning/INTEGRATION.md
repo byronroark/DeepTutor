@@ -38,13 +38,14 @@ Learners see assigned courses, prepared feedback, retries, sequential unlocks,
 writing draft saves, submission state and parent feedback. Saving is explicit;
 autosave and unsaved-change navigation warnings remain future work.
 
-The route is currently reached directly, with no sidebar/default-home changes.
+Local-only mode redirects signed-in workspace pages to `/family-learning`.
 The live household installation has not been enabled or replaced. Optional
 `FAMILY_LEARNING_LOCAL_ONLY=1` now restricts the shared HTTP authentication
 dependency to lesson routes and a small account/sign-out allowlist for non-admins,
 and rejects learner WebSockets. Admin behavior remains available. Auth-disabled
-mode fails closed. A full audit of public routes and alternate authentication
-paths is still required before claiming comprehensive surface confinement.
+mode fails closed. An ASGI default-deny boundary also covers public routes,
+alternate authentication paths, files and WebSockets. It validates the actual
+session token before applying the learner allowlist.
 
 ## Validation and remaining acceptance
 
@@ -64,9 +65,10 @@ rebuild and does not establish household deployment readiness.
 
 The first interface is English; existing i18n lint warns on untranslated copy.
 Custom single-exercise authoring, parent answer/hint previews and sign-out also
-passed browser acceptance. A complete public-route audit and household
-acceptance remain required. Python exercises now delegate through an authenticated
+passed browser acceptance. Separate household learner acceptance remains
+required. Python exercises now delegate through an authenticated
 Unix broker and passed complete disposable HTTP/browser acceptance. The broker
-is not installed as a household service. See `PYTHON_LESSONS.md`. Ask Dad/Mom, parent
+is available as a manual-start parent-only pilot service with recovery and rollback;
+see `PILOT.md` and `PYTHON_LESSONS.md`. Ask Dad/Mom, parent
 unlock overrides and report exports remain unimplemented. No live model calls
 or API spending were introduced. See `ACCEPTANCE.md` for the runner boundary.
