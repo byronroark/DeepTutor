@@ -56,7 +56,7 @@ export default function FamilyLearningPage() {
   const field = 'w-full rounded-lg border border-current/20 bg-transparent p-3'
   const button = 'rounded-lg border border-current/25 px-4 py-2 disabled:opacity-40'
   const name = (id: string) => accounts.find(account=>account.id===id)?.username ?? 'Learner'
-  return <main className="mx-auto max-w-4xl space-y-6 p-6">
+  return <main className="mx-auto h-dvh w-full max-w-4xl space-y-6 overflow-y-auto p-6">
     <header><h1 className="text-3xl font-semibold">Family Learning</h1><p>Small steps. Time to practise. Help when you need it.</p></header>
     <p role="status" aria-live="polite">{message}</p>
     {role && <button className={button} disabled={busy} onClick={()=>void action(async()=>{
