@@ -71,7 +71,15 @@ def origin(value):
 
 
 def create_router(
-    require_auth, engine, enabled, allowed_origin, learner_accounts, python_executor=None
+    require_auth,
+    engine,
+    enabled,
+    allowed_origin,
+    learner_accounts,
+    python_executor=None,
+    course_generator=None,
+    generation_models=None,
+    course_checker=None,
 ):
     router = APIRouter()
 
@@ -203,4 +211,9 @@ def create_router(
         perform(lambda: engine().review(current, submission, body.approve, body.feedback))
         return {"saved": True}
 
+    from .authoring_api import attach_authoring
+
+    attach_authoring(
+        router, parent, engine, perform, course_generator, generation_models, course_checker
+    )
     return router

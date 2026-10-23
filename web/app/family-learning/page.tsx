@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiFetch } from '@/shared/api/client'
 import CourseImport from './CourseImport'
+import CourseAuthoring from './CourseAuthoring'
 import { AttemptHistory, RetakeControls, type HistoryEntry } from './Retakes'
 
 type Summary = { id: string; title: string; subject: string }
@@ -77,6 +78,7 @@ export default function FamilyLearningPage() {
     <div className="flex flex-wrap gap-3">{courses.map(item => <button className={button} disabled={busy} key={item.id} onClick={() => void action(() => open(item.id))}>{item.title}</button>)}</div>
     {role === 'parent' && <section className="space-y-3 rounded-xl border border-current/20 p-5">
       <h2 className="text-xl font-semibold">Prepare lessons</h2>
+      <CourseAuthoring onPublished={async(id)=>{await load();await open(id);setMessage('AI-prepared course published privately. Choose a learner to assign it.')}}/>
       <p>Add the starter lessons, review their material, then assign them individually.</p>
       <CourseImport onPublished={async(id)=>{await load();await open(id);setMessage('Course imported privately. Review it and choose a learner to assign it.')}}/>
       <button className={button} disabled={busy} onClick={() => void action(async () => {

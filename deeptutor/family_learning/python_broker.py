@@ -13,10 +13,11 @@ import stat
 import threading
 
 from .broker_credentials import read_token
-from .local_lessons import Lessons
+from .local_lessons import Lessons, validate
 from .python_grading import PythonGrader
 from .python_runner import PythonRunner
 from .recovery import broker_lock, recover
+from .solution_check import check_reference
 
 
 class Broker(
@@ -67,7 +68,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         try:
             self.connection.settimeout(10)
-            if self.path != "/run" or not hmac.compare_digest(
+            if self.path not in {"/run", "/check-reference"} or not hmac.compare_digest(
                 self.headers.get("Authorization", "").encode("utf-8"),
                 ("Bearer " + self.server.token).encode("ascii"),
             ):
@@ -84,6 +85,22 @@ class Handler(BaseHTTPRequestHandler):
             if len(raw) != length:
                 raise ValueError("Incomplete request")
             data = json.loads(raw)
+            if self.path == "/check-reference":
+                if not isinstance(data, dict) or set(data) != {"lesson", "code"}:
+                    raise ValueError("Use a bounded reference check")
+                validate(
+                    {
+                        "title": "Reference",
+                        "subject": "Python",
+                        "objectives": ["Check reference"],
+                        "lessons": [data["lesson"]],
+                    }
+                )
+                if data["lesson"]["kind"] != "python":
+                    raise ValueError("Only Python references can run")
+                return self.reply(
+                    200, check_reference(self.server.grader.runner, data["lesson"], data["code"])
+                )
             if not isinstance(data, dict) or set(data) != {
                 "learner",
                 "course",

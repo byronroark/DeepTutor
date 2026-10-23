@@ -48,6 +48,28 @@
 
 ## Family Learning: bring lessons from your AI chat
 
+Parents can now choose **Family Learning → Create course with AI** to generate
+a saved private draft using their own connected OpenAI Codex account. Choose a
+topic, level, goals, 1–8 exercises, minutes per exercise, exercise types and parent
+instructions. Connect the parent account in **Settings → Providers** first; the
+private pilot also needs the optional [parent cloud connection](family_learning/PILOT.md#optional-parent-openai-connection).
+
+Review and edit each exercise, preview the student view, and save changes.
+**Generate revised draft** uses the saved draft plus your revision instructions
+and preserves the earlier draft. **Check and publish reviewed course** tests all
+private Python reference solutions in the isolated runner before saving an
+immutable private course. Assignment to a learner is always a separate action.
+Facts, pedagogy and non-code answer keys still require parent review.
+
+Only parent-entered instructions and a selected course draft are sent during
+authoring. Learner answers, writing, identity and progress are never loaded by
+this workflow. The child continues working locally with prepared feedback.
+Generation uses the connected parent's allowance; it does not use the separate
+API tutoring budget. Drafts survive page refreshes and pilot upgrades. Interrupted
+requests expire after four minutes and are never automatically reissued.
+
+You can also prepare course files in any AI chat tool and use the import path:
+
 This fork includes parent-reviewed local courses. Use any AI chat tool to prepare
 the material; DeepTutor does not connect to that account or send it learner work.
 With the [local pilot](family_learning/PILOT.md) running, sign in as a parent and

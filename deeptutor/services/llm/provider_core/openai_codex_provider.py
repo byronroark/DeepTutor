@@ -51,6 +51,7 @@ class OpenAICodexProvider(LLMProvider):
         reasoning_effort: str | None,
         tool_choice: str | dict[str, Any] | None,
         on_content_delta: Callable[[str], Awaitable[None]] | None = None,
+        text_format: dict[str, Any] | None = None,
     ) -> LLMResponse:
         model_name = model or self.default_model
         model_slug = _strip_model_prefix(model_name)
@@ -70,6 +71,8 @@ class OpenAICodexProvider(LLMProvider):
         }
         if reasoning_effort:
             body["reasoning"] = {"effort": reasoning_effort}
+        if text_format is not None:
+            body["text"]["format"] = text_format
         if tools:
             body["tools"] = convert_tools(tools)
 
@@ -145,8 +148,15 @@ class OpenAICodexProvider(LLMProvider):
         tool_choice: str | dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> LLMResponse:
-        del max_tokens, temperature, kwargs
-        return await self._call_codex(messages, tools, model, reasoning_effort, tool_choice)
+        del max_tokens, temperature
+        return await self._call_codex(
+            messages,
+            tools,
+            model,
+            reasoning_effort,
+            tool_choice,
+            text_format=kwargs.get("text_format"),
+        )
 
     async def chat_stream(
         self,

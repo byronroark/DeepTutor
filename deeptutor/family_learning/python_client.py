@@ -18,6 +18,34 @@ class UnixConnection(http.client.HTTPConnection):
         self.sock.connect(self.path)
 
 
+def check_solution(socket_path, token_path, actor, lesson, code):
+    if actor.role != "parent":
+        raise PermissionError("Only a parent may check reference programs")
+    connection = UnixConnection(socket_path)
+    try:
+        connection.request(
+            "POST",
+            "/check-reference",
+            json.dumps({"lesson": lesson, "code": code}).encode(),
+            {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + read_token(token_path),
+            },
+        )
+        response = connection.getresponse()
+        raw = response.read(131073)
+        if len(raw) > 131072:
+            raise RuntimeError("Oversized check response")
+        data = json.loads(raw)
+        if response.status == 409:
+            raise ValueError(str(data.get("detail", "Reference program needs review")))
+        if response.status != 200 or data != {"checked": True}:
+            raise RuntimeError("Reference sandbox is unavailable")
+        return data
+    finally:
+        connection.close()
+
+
 def run_python(socket_path, token_path, actor, course, lesson, code, request_id):
     if actor.role != "learner":
         raise PermissionError("Only an assigned learner can run an exercise")
