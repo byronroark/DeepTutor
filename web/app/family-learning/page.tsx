@@ -67,6 +67,7 @@ export default function FamilyLearningPage() {
   return <main className="mx-auto h-dvh w-full max-w-4xl space-y-6 overflow-y-auto p-6">
     <header><h1 className="text-3xl font-semibold">Family Learning</h1><p>Small steps. Time to practise. Help when you need it.</p></header>
     <p role="status" aria-live="polite">{message}</p>
+    {role==='parent' && <a className={button+' inline-block'} href="/">DeepTutor dashboard</a>}
     {role && <button className={button} disabled={busy} onClick={()=>void action(async()=>{
       const response=await apiFetch('/api/auth/logout',{method:'POST'})
       if(!response.ok)throw new Error('Could not sign out. Please try again.')

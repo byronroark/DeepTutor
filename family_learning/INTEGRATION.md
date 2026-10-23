@@ -38,7 +38,8 @@ Learners see assigned courses, prepared feedback, retries, sequential unlocks,
 writing draft saves, submission state and parent feedback. Saving is explicit;
 autosave and unsaved-change navigation warnings remain future work.
 
-Local-only mode redirects signed-in workspace pages to `/family-learning`.
+Local-only mode redirects learner workspace pages to `/family-learning`.
+Parents retain the normal dashboard and can use the dashboard link on Family Learning.
 The live household installation has not been enabled or replaced. Optional
 `FAMILY_LEARNING_LOCAL_ONLY=1` now restricts the shared HTTP authentication
 dependency to lesson routes and a small account/sign-out allowlist for non-admins,

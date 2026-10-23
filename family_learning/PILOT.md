@@ -5,7 +5,8 @@ This pilot is separate from the household installation. It listens only on
 the stopped source data into a private directory, preserves account passwords,
 and rotates the copy's session secret. It clears the copied model catalog.
 No service is enabled at boot. No child machine or original data is edited.
-The parent and learner use only assigned local lessons; no AI service is used.
+Learners use only assigned local lessons; parents retain the normal dashboard.
+No AI service is configured by the pilot installer.
 
 Prerequisites: Linux desktop user with Docker access, systemd user services,
 Python 3.11+, Node/npm, and a working Docker installation. Docker access is
