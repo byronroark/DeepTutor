@@ -5,10 +5,11 @@ For development tests only. Never expose this listener on the household LAN.
 
 import argparse
 import asyncio
+import errno
 import ipaddress
 
 
-async def serve(target, port=3783):
+async def serve(target, port=3783, ipv6_loopback=False):
     async def connection(reader, writer):
         remote = None
         try:
@@ -33,7 +34,14 @@ async def serve(target, port=3783):
             if remote:
                 remote.close()
 
-    server = await asyncio.start_server(connection, "127.0.0.1", port, limit=65536)
+    try:
+        server = await asyncio.start_server(
+            connection, ["127.0.0.1", "::1"] if ipv6_loopback else "127.0.0.1", port, limit=65536
+        )
+    except OSError as error:
+        if not ipv6_loopback or error.errno not in {errno.EAFNOSUPPORT, errno.EADDRNOTAVAIL}:
+            raise
+        server = await asyncio.start_server(connection, "127.0.0.1", port, limit=65536)
     async with server:
         await server.serve_forever()
 

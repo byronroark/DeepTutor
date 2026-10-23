@@ -6,7 +6,33 @@ the stopped source data into a private directory, preserves account passwords,
 and rotates the copy's session secret. It clears the copied model catalog.
 No service is enabled at boot. No child machine or original data is edited.
 Learners use only assigned local lessons; parents retain the normal dashboard.
-No AI service is configured by the pilot installer.
+By default, no AI service is configured by the pilot installer.
+
+## Optional parent OpenAI connection
+
+Add `--parent-cloud` to the install command to allow parents to connect their
+own OpenAI account from Settings → Providers. Learners remain confined to
+assigned local lessons; they cannot start OAuth or access model routes.
+This option preserves the internal Docker network and adds a host HTTPS CONNECT
+proxy restricted to `auth.openai.com`, `chatgpt.com`, and `api.openai.com`, port
+443. Only the pilot container may connect. Private destination addresses and
+other hosts are refused. TLS remains end to end; the proxy does not log payloads.
+
+If the host firewall blocks container-to-host traffic, allow only the pilot's
+container IP to its bridge gateway on TCP port 3786, on that bridge interface.
+Do not open this port to the LAN or allow general container Internet access.
+
+The installer also reserves localhost ports 1455 and 1457 for automatic browser
+callback forwarding. Existing listeners cause startup to fail rather than being
+replaced. Complete a fresh sign-in in the parent browser; never share callback
+addresses or codes. The upstream handler still checks secret state and PKCE.
+Only GET requests to its exact callback route bypass the pilot login boundary
+when this option is enabled; other settings routes still require parent access.
+
+Reinstall with `--no-parent-cloud` to stop the proxy and callback forwarding.
+This preserves lessons and existing private provider credentials. Stop the pilot
+or disable this option if another local OAuth client needs the callback ports.
+No service is enabled at boot.
 
 Prerequisites: Linux desktop user with Docker access, systemd user services,
 Python 3.11+, Node/npm, and a working Docker installation. Docker access is

@@ -617,6 +617,7 @@ app.add_middleware(
     enabled=lambda: os.environ.get("FAMILY_LEARNING_LOCAL_ONLY") == "1",
     auth_enabled=lambda: _family_auth_enabled,
     decode_token=_family_decode,
+    parent_callback=lambda: os.environ.get("FAMILY_PARENT_CLOUD") == "1",
 )
 
 app.include_router(

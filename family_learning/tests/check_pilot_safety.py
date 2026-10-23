@@ -18,6 +18,7 @@ from deeptutor.family_learning.recovery import recover
 
 class FirewallTests(unittest.TestCase):
     def setUp(self):
+        self.callback_allowed = False
         app = FastAPI()
 
         @app.api_route("/{path:path}", methods=["GET", "POST"])
@@ -38,6 +39,7 @@ class FirewallTests(unittest.TestCase):
                 if token in {"parent", "child"}
                 else None
             ),
+            parent_callback=lambda: self.callback_allowed,
         )
         self.client = TestClient(app)
         self.addCleanup(self.client.close)
@@ -88,6 +90,14 @@ class FirewallTests(unittest.TestCase):
         with self.assertRaises(WebSocketDisconnect):
             with self.client.websocket_connect("/ws?token=child"):
                 pass
+
+    def test_only_explicit_parent_callback_get_can_reach_state_validator(self):
+        path = "/api/auth/openai-codex/callback"
+        self.assertEqual(self.client.get(path).status_code, 401)
+        self.callback_allowed = True
+        self.assertEqual(self.client.get(path).status_code, 200)
+        self.assertEqual(self.client.post(path).status_code, 401)
+        self.assertEqual(self.client.get("/api/settings").status_code, 401)
 
 
 class RecoveryTests(unittest.TestCase):

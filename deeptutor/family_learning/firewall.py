@@ -8,7 +8,8 @@ from .access import learner_route_allowed
 
 
 class LocalLearningFirewall:
-    def __init__(self, app, enabled, auth_enabled, decode_token):
+    def __init__(self, app, enabled, auth_enabled, decode_token, parent_callback=lambda: False):
+        self.parent_callback = parent_callback
         self.app, self.enabled, self.auth_enabled, self.decode_token = (
             app,
             enabled,
@@ -21,7 +22,12 @@ class LocalLearningFirewall:
             return await self.app(scope, receive, send)
         path = scope.get("path", "")
         if scope["type"] == "http" and (
-            (path == "/api/auth/login" and scope["method"] == "POST")
+            (
+                self.parent_callback()
+                and path == "/api/auth/openai-codex/callback"
+                and scope["method"] == "GET"
+            )
+            or (path == "/api/auth/login" and scope["method"] == "POST")
             or (
                 path in {"/api/auth/status", "/health", "/health/ready"}
                 and scope["method"] == "GET"
