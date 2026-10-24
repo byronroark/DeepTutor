@@ -1,5 +1,7 @@
 'use client'
 
+import {randomUuid} from '@/lib/random-uuid'
+
 import {useEffect,useState} from 'react'
 import {apiFetch} from '@/shared/api/client'
 import {fieldClass,buttonClass,primaryClass} from './theme'
@@ -35,7 +37,7 @@ export default function CourseAuthoring({onPublished}:{onPublished:(id:string)=>
   async function action(work:()=>Promise<void>){setBusy(true);setError('');try{await work()}catch(e){setError(e instanceof Error?e.message:'Could not complete this action.')}finally{setBusy(false)}}
   function edit(work:(copy:Bundle)=>void){if(!bundle)return;const copy=structuredClone(bundle);work(copy);setBundle(copy);setDirty(true);setReviewed(false)}
   async function generate(revise=false){
-    const id=crypto.randomUUID().replaceAll('-','')
+    const id=randomUuid().replaceAll('-','')
     const saved=await request<{id:string}>('/generate',{...brief,request_id:id,...(revise&&draft?{source:draft.id,source_version:draft.version,instructions:revision}: {})})
     select({id:saved.id,status:'generating',version:1,brief:{topic:brief.topic},bundle:null,error:'',published:''});setStatus('Generating a private draft. You can leave this page and reopen it from Saved drafts.');await load()
   }

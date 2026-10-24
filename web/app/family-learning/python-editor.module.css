@@ -1,0 +1,20 @@
+.editor { position: relative; margin-top: .4rem; border: 1px solid var(--border); border-radius: .75rem; overflow: hidden; background: var(--background); }
+.editor:focus-within { outline: 2px solid var(--ring); outline-offset: 2px; }
+.input, .paint { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 15px; line-height: 1.65; tab-size: 4; letter-spacing: normal; text-align: left; white-space: pre; }
+.paint { position: absolute; inset: 0; overflow: hidden; pointer-events: none; color: var(--foreground); }
+.paint pre { margin: 0; padding: 1rem; min-width: max-content; background: transparent; font: inherit; white-space: pre; }
+.paint code { font: inherit; white-space: pre; }
+.input { position: relative; display: block; width: 100%; min-height: 16rem; margin: 0; border: 0; padding: 1rem; resize: vertical; overflow: auto; background: transparent; color: transparent; caret-color: var(--foreground); outline: none; }
+.input:disabled { cursor: wait; }
+.paint :global(.token.comment) { color: #71816b; }
+.paint :global(.token.keyword), .paint :global(.token.boolean) { color: #9553ba; }
+.paint :global(.token.number) { color: #b45d12; }
+.paint :global(.token.string) { color: #328358; }
+.paint :global(.token.builtin), .paint :global(.token.function) { color: #2874ae; }
+.paint :global(.token.operator), .paint :global(.token.punctuation) { color: var(--foreground); }
+:global(:is(.dark, .theme-glass)) .paint :global(.token.comment) { color: #96a88d; }
+:global(:is(.dark, .theme-glass)) .paint :global(.token.keyword), :global(:is(.dark, .theme-glass)) .paint :global(.token.boolean) { color: #c792ea; }
+:global(:is(.dark, .theme-glass)) .paint :global(.token.number) { color: #f2b880; }
+:global(:is(.dark, .theme-glass)) .paint :global(.token.string) { color: #a5d6a7; }
+:global(:is(.dark, .theme-glass)) .paint :global(.token.builtin), :global(:is(.dark, .theme-glass)) .paint :global(.token.function) { color: #82c7ed; }
+@media (forced-colors: active) { .paint { display: none; } .input { color: CanvasText; caret-color: CanvasText; } }

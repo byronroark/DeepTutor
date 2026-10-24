@@ -1,6 +1,6 @@
 import React from 'react'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { beforeEach, expect, it, vi } from 'vitest'
+import { afterEach,beforeEach, expect, it, vi } from 'vitest'
 import FamilyLearningPage from '@/app/family-learning/page'
 
 const mock = vi.hoisted(() => ({ fetch: vi.fn() }))
@@ -13,6 +13,10 @@ const course = {title:'Fractions',subject:'Math',objectives:['Understand halves'
   {id:'next',title:'The next step',unlocked:false},
 ]}
 const response = (data: unknown, ok=true) => ({ok,json:async()=>data})
+
+const lanRandom=globalThis.crypto.getRandomValues.bind(globalThis.crypto)
+beforeEach(()=>vi.stubGlobal('crypto',{getRandomValues:lanRandom}))
+afterEach(()=>vi.unstubAllGlobals())
 
 beforeEach(()=>vi.clearAllMocks())
 
@@ -125,4 +129,12 @@ it('runs assigned Python through the narrow endpoint and displays output',async(
   expect(await screen.findByText('Your program worked!')).toBeTruthy()
   expect(screen.getByLabelText('Program result').textContent).toContain('7')
   expect(screen.getByText('Completed ✓')).toBeTruthy()
+})
+
+it('shows full parent navigation and authoring on the learner host',async()=>{
+  mock.fetch.mockImplementation(async(path:string)=>response(path.endsWith('/learners')?[]:{role:'parent',learner_host:true,courses:[]}))
+  render(<FamilyLearningPage/>)
+  expect(await screen.findByRole('link',{name:'DeepTutor dashboard'})).toBeTruthy()
+  expect(screen.getByRole('navigation',{name:'DeepTutor navigation'})).toBeTruthy()
+  expect(screen.getByText('Import an AI-prepared course')).toBeTruthy()
 })
