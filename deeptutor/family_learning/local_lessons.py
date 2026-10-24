@@ -166,6 +166,8 @@ class Lessons:
                 CREATE TABLE IF NOT EXISTS retired_events(id TEXT PRIMARY KEY);
             """)
             db.execute("BEGIN IMMEDIATE")
+            if "preserved" not in {row["name"] for row in db.execute("PRAGMA table_info(retakes)")}:
+                db.execute("ALTER TABLE retakes ADD COLUMN preserved INTEGER NOT NULL DEFAULT 1")
             if "epoch" not in {row["name"] for row in db.execute("PRAGMA table_info(assignments)")}:
                 db.execute("ALTER TABLE assignments ADD COLUMN epoch INTEGER NOT NULL DEFAULT 0")
 
@@ -266,7 +268,9 @@ class Lessons:
             }
 
     def history(self, db, course, learner=None):
-        rows = db.execute("SELECT * FROM retakes WHERE course=? ORDER BY rowid DESC", (course,))
+        rows = db.execute(
+            "SELECT * FROM retakes WHERE course=? AND preserved=1 ORDER BY rowid DESC", (course,)
+        )
         return [
             {
                 "id": row["id"],
@@ -282,7 +286,11 @@ class Lessons:
             if learner is None or row["learner"] == learner
         ]
 
-    def reset_progress(self, actor, course, learner, lesson, expected_epoch, request_id):
+    def reset_progress(
+        self, actor, course, learner, lesson, expected_epoch, request_id, preserve_results=True
+    ):
+        if type(preserve_results) is not bool:
+            raise ValueError("Choose whether to preserve results")
         if not isinstance(request_id, str) or not re.fullmatch(r"[a-f0-9]{32}", request_id):
             raise ValueError("A unique retake request ID is required")
         if type(expected_epoch) is not int or expected_epoch < 0:
@@ -296,7 +304,12 @@ class Lessons:
                 raise ValueError("Unknown lesson")
             prior = db.execute("SELECT * FROM retakes WHERE id=?", (request_id,)).fetchone()
             if prior:
-                if (prior["course"], prior["learner"], prior["scope"]) != (course, learner, scope):
+                if (
+                    prior["course"],
+                    prior["learner"],
+                    prior["scope"],
+                    bool(prior["preserved"]),
+                ) != (course, learner, scope, preserve_results):
                     raise ValueError("Retake request ID already used")
                 return {"saved": True, "id": request_id}
             assignment = db.execute(
@@ -332,14 +345,15 @@ class Lessons:
             if not work and not jobs:
                 raise ValueError("There is no progress to restart for this selection")
             db.execute(
-                "INSERT INTO retakes VALUES(?,?,?,?,?,?)",
+                "INSERT INTO retakes(id,course,learner,scope,archived_at,results,preserved) VALUES(?,?,?,?,?,?,?)",
                 (
                     request_id,
                     course,
                     learner,
                     scope,
                     datetime.now(timezone.utc).isoformat(),
-                    encoded(work),
+                    encoded(work if preserve_results else []),
+                    int(preserve_results),
                 ),
             )
             for row in db.execute(
@@ -348,6 +362,8 @@ class Lessons:
                 fingerprint = json.loads(row["fingerprint"])
                 if fingerprint[0] == course and fingerprint[1] in selected:
                     db.execute("INSERT OR IGNORE INTO retired_events VALUES(?)", (row["id"],))
+                    if not preserve_results:
+                        db.execute("DELETE FROM events WHERE id=?", (row["id"],))
             for item in selected:
                 db.execute(
                     "DELETE FROM work WHERE course=? AND learner=? AND lesson=?",
@@ -357,6 +373,17 @@ class Lessons:
                     "UPDATE submissions SET decision='archived' WHERE course=? AND learner=? AND lesson=? AND decision='pending'",
                     (course, learner, item),
                 )
+            if not preserve_results:
+                for item in selected:
+                    db.execute(
+                        "DELETE FROM submissions WHERE course=? AND learner=? AND lesson=?",
+                        (course, learner, item),
+                    )
+                    if has_jobs:
+                        db.execute(
+                            "DELETE FROM python_jobs WHERE course=? AND learner=? AND lesson=?",
+                            (course, learner, item),
+                        )
             db.execute(
                 "UPDATE assignments SET epoch=epoch+1 WHERE course=? AND learner=?",
                 (course, learner),
@@ -438,11 +465,11 @@ class Lessons:
             if item["kind"] == "python":
                 raise ValueError("Use the isolated Run Python exercise action")
             prior = db.execute("SELECT * FROM events WHERE id=?", (request_id,)).fetchone()
+            if db.execute("SELECT 1 FROM retired_events WHERE id=?", (request_id,)).fetchone():
+                raise ValueError(
+                    "This request belongs to an earlier attempt. Refresh and try again."
+                )
             if prior:
-                if db.execute("SELECT 1 FROM retired_events WHERE id=?", (request_id,)).fetchone():
-                    raise ValueError(
-                        "This request belongs to an earlier attempt. Refresh and try again."
-                    )
                 if prior["actor"] != actor.id or prior["fingerprint"] != fingerprint:
                     raise ValueError("Request ID already used")
                 return json.loads(prior["result"])

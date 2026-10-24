@@ -7,6 +7,7 @@ lesson scope; container isolation and resource limits are the security boundary.
 import ast
 from dataclasses import dataclass
 import math
+import re
 import selectors
 import shutil
 import subprocess
@@ -107,7 +108,10 @@ class Result:
 
 
 class PythonRunner:
-    def __init__(self):
+    def __init__(self, image=IMAGE):
+        if image != IMAGE and not re.fullmatch(r"sha256:[a-f0-9]{64}", image):
+            raise ValueError("The exercise image must be pinned by immutable digest")
+        self.image = image
         self.docker = shutil.which("docker")
         if not self.docker:
             raise RuntimeError("The parent has not installed the local Python runner.")
@@ -170,7 +174,7 @@ class PythonRunner:
             "fsize=1048576:1048576",
             "--entrypoint",
             "python3",
-            IMAGE,
+            self.image,
             "-I",
             "-S",
             "-B",

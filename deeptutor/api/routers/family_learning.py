@@ -55,4 +55,5 @@ router = create_router(
     course_generator=generate_course,
     generation_models=parent_models,
     course_checker=check_course_solution,
+    learner_host=lambda: os.environ.get("FAMILY_LEARNER_HOST") == "1",
 )

@@ -19,6 +19,7 @@ from deeptutor.family_learning.recovery import recover
 class FirewallTests(unittest.TestCase):
     def setUp(self):
         self.callback_allowed = False
+        self.learner_host = False
         app = FastAPI()
 
         @app.api_route("/{path:path}", methods=["GET", "POST"])
@@ -40,9 +41,31 @@ class FirewallTests(unittest.TestCase):
                 else None
             ),
             parent_callback=lambda: self.callback_allowed,
+            learner_host=lambda: self.learner_host,
         )
         self.client = TestClient(app)
         self.addCleanup(self.client.close)
+
+    def test_learner_host_allows_parent_dashboard_but_blocks_learner_ai(self):
+        self.learner_host = True
+        self.callback_allowed = True
+        for token in ["parent", "child"]:
+            headers = {"Authorization": "Bearer " + token}
+            for path in [
+                "/api/settings",
+                "/api/auth/openai-codex/callback",
+                "/api/family-learning/authoring/models",
+                "/api/family-learning/authoring/generate",
+            ]:
+                self.assertEqual(
+                    self.client.get(path, headers=headers).status_code,
+                    200 if token == "parent" else 403,
+                    path,
+                )
+            self.assertEqual(
+                self.client.get("/api/family-learning", headers=headers).status_code, 200
+            )
+        self.assertEqual(self.client.get("/api/auth/openai-codex/callback").status_code, 401)
 
     def test_public_and_alternate_routes_are_blocked(self):
         for path in [
