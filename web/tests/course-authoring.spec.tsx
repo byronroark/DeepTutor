@@ -1,11 +1,15 @@
 import React from 'react'
 import {fireEvent,render,screen,waitFor} from '@testing-library/react'
-import {beforeEach,expect,it,vi} from 'vitest'
+import {afterEach,beforeEach,expect,it,vi} from 'vitest'
 import CourseAuthoring from '@/app/family-learning/CourseAuthoring'
 const mock=vi.hoisted(()=>({fetch:vi.fn()}))
 vi.mock('@/shared/api/client',()=>({apiFetch:mock.fetch}))
 const bundle={document:{format:'family-learning-course',version:1,course:{title:'Count stars',subject:'Python',objectives:['Use variables'],lessons:[{id:'stars',title:'Stars',kind:'python',explanation:'A variable stores a value.',question:'Print 7.',hints:['Try print.'],success:'Good work!',starter_code:'stars = 5',expected_output:'7\n',requirements:['assignment']}]}},solutions:{stars:'stars = 5\nprint(stars + 2)'}}
 const draft={id:'abc',status:'ready',version:1,brief:{topic:'Stars'},bundle,error:'',published:''}
+const lanRandom=globalThis.crypto.getRandomValues.bind(globalThis.crypto)
+beforeEach(()=>vi.stubGlobal('crypto',{getRandomValues:lanRandom}))
+afterEach(()=>vi.unstubAllGlobals())
+
 beforeEach(()=>{vi.clearAllMocks();mock.fetch.mockImplementation(async(path:string)=>({ok:true,json:async()=>path.endsWith('/models')?{models:[{model:'test',name:'Parent model'}]}:path.endsWith('/drafts')?[draft]:path.endsWith('/generate')?{id:'new'}:path.endsWith('/publish')?{id:'course'}:{...draft,version:2}}))})
 async function open(){render(<CourseAuthoring onPublished={vi.fn()}/>);fireEvent.click(screen.getByRole('button',{name:'Create course with AI'}));await screen.findByRole('option',{name:'Parent model'})}
 it('sends only the parent brief and creates a private pending draft',async()=>{

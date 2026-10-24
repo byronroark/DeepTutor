@@ -5,6 +5,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
 from .course_import import MAX_IMPORT_BYTES, parse_document
@@ -18,6 +19,7 @@ class Answer(BaseModel):
 
 
 class Retake(BaseModel):
+    preserve_results: StrictBool = True
     model_config = ConfigDict(extra="forbid")
     learner: str = Field(min_length=1, max_length=128)
     lesson: str | None = Field(default=None, max_length=64)
@@ -80,6 +82,7 @@ def create_router(
     course_generator=None,
     generation_models=None,
     course_checker=None,
+    learner_host=lambda: False,
 ):
     router = APIRouter()
 
@@ -92,8 +95,12 @@ def create_router(
             raise HTTPException(401, "A signed-in account is required")
         role = "parent" if getattr(token, "role", "") == "admin" else "learner"
         if request.method not in {"GET", "HEAD"}:
-            configured = origin(allowed_origin())
-            if configured is None or origin(request.headers.get("origin", "")) != configured:
+            configured = [origin(value.strip()) for value in allowed_origin().split(",")]
+            if (
+                not configured
+                or None in configured
+                or origin(request.headers.get("origin", "")) not in configured
+            ):
                 raise HTTPException(403, "Open Family Learning from its configured address")
             if (
                 request.headers.get("content-type", "").split(";")[0].strip().lower()
@@ -121,7 +128,11 @@ def create_router(
 
     @router.get("")
     def overview(current=Depends(actor)):
-        return {"role": current.role, "courses": perform(lambda: engine().catalog(current))}
+        return {
+            "role": current.role,
+            "courses": perform(lambda: engine().catalog(current)),
+            "learner_host": learner_host(),
+        }
 
     @router.get("/learners")
     def learners(current=Depends(parent)):
@@ -169,11 +180,29 @@ def create_router(
         perform(lambda: engine().assign(current, course, body.learner, body.active))
         return {"saved": True}
 
+    @router.get("/courses/{course}/export")
+    def export_course(course: str, current=Depends(parent)):
+        content = perform(lambda: engine().parent_course(current, course))["course"]
+        return Response(
+            json.dumps({"format": "family-learning-course", "version": 1, "course": content}),
+            media_type="application/json",
+            headers={
+                "Content-Disposition": 'attachment; filename="family-learning-course.json"',
+                "Cache-Control": "no-store",
+            },
+        )
+
     @router.post("/courses/{course}/retake")
     def retake(course: str, body: Retake, current=Depends(parent)):
         return perform(
             lambda: engine().reset_progress(
-                current, course, body.learner, body.lesson, body.expected_epoch, body.request_id
+                current,
+                course,
+                body.learner,
+                body.lesson,
+                body.expected_epoch,
+                body.request_id,
+                body.preserve_results,
             )
         )
 

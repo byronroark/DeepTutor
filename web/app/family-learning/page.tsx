@@ -1,10 +1,13 @@
 'use client'
 
+import {randomUuid} from '@/lib/random-uuid'
+
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiFetch } from '@/shared/api/client'
 import {fieldClass,buttonClass,primaryClass} from './theme'
 import CourseImport from './CourseImport'
 import FamilyFrame from './FamilyFrame'
+import PythonEditor from './PythonEditor'
 import {PageHeader,pageGridClass} from '@/components/layout/FeaturePage'
 import CourseAuthoring from './CourseAuthoring'
 import { AttemptHistory, RetakeControls, type HistoryEntry } from './Retakes'
@@ -44,7 +47,7 @@ export default function FamilyLearningPage() {
   const attemptEpochs = useRef<Record<string,number>>({})
   const [codingHints,setCodingHints] = useState<Record<string,{items:string[];more:boolean}>>({})
   const load = useCallback(async () => {
-    const overview = await request<{role: string; courses: Summary[]}>('')
+    const overview = await request<{role: string; courses: Summary[]; learner_host?:boolean}>('')
     setRole(overview.role); setCourses(overview.courses)
     if (overview.role === 'parent') setAccounts(await request<Account[]>('/learners'))
   }, [])
@@ -86,8 +89,8 @@ export default function FamilyLearningPage() {
     </section>
     {role === 'parent' && <section className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-5">
       <h2 className="text-[15px] font-semibold">Prepare lessons</h2>
-      <CourseAuthoring onPublished={async(id)=>{await load();await open(id);setMessage('AI-prepared course published privately. Choose a learner to assign it.')}}/>
-      <p>Add the starter lessons, review their material, then assign them individually.</p>
+      {<CourseAuthoring onPublished={async(id)=>{await load();await open(id);setMessage('AI-prepared course published privately. Choose a learner to assign it.')}}/>}
+      <p>{"Add the starter lessons, review their material, then assign them individually."}</p>
       <CourseImport onPublished={async(id)=>{await load();await open(id);setMessage('Course imported privately. Review it and choose a learner to assign it.')}}/>
       <button className={button} disabled={busy} onClick={() => void action(async () => {
         for (const starter of await request<Course[]>('/starters')) await request('/courses', starter)
@@ -127,6 +130,13 @@ export default function FamilyLearningPage() {
     </section>}
     {course && <section className="space-y-4"><h2 className="font-serif text-2xl font-semibold">{course.title}</h2><ul>{course.objectives.map(item=><li key={item}>{item}</li>)}</ul>
       {parentCourse && <>
+        <button className={button} disabled={busy} onClick={()=>void action(async()=>{
+          const response=await apiFetch(`/api/family-learning/courses/${selected}/export`)
+          if(!response.ok)throw new Error('Could not download this course.')
+          const url=URL.createObjectURL(await response.blob())
+          const link=document.createElement('a');link.href=url;link.download='family-learning-course.json';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)
+          setMessage('Course downloaded. Import it on the learner PC, review it, then assign it separately.')
+        })}>Download course for learner PC</button>
         <h3 className="font-semibold">Assignments</h3>
         {accounts.map(account => {const active=parentCourse.assignments.some(item=>item.learner===account.id && item.active===1); return <button disabled={busy} className={button} key={account.id} onClick={()=>void action(async()=>{
           await request(`/courses/${selected}/assignment`,{learner:account.id,active:!active}); await open(selected); setMessage(active?'Assignment removed.':'Lesson assigned.')
@@ -144,7 +154,7 @@ export default function FamilyLearningPage() {
         </article>)}
       </>}
       <AttemptHistory entries={parentCourse?.history??course.history??[]} lessons={course.lessons} name={parentCourse?name:undefined}/>
-      {course.lessons.map(lesson=><article key={selected+lesson.id} className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-5">
+      {course.lessons.map(lesson=><article key={selected+lesson.id} className={'space-y-3 rounded-xl border bg-[var(--card)] p-5 '+(lesson.state==='passed'?'border-[var(--success)] border-l-4':'border-[var(--border)]')}>
         <h3 className="text-[15px] font-semibold">{lesson.title}</h3>
         {lesson.unlocked===false?<p>Finish the earlier lesson to unlock this step.</p>:<>
           <p className="whitespace-pre-wrap">{lesson.explanation}</p><p className="font-semibold">{lesson.question}</p>
@@ -158,9 +168,9 @@ export default function FamilyLearningPage() {
             <p>Success feedback: {lesson.success}</p>
           </aside>}
           {role==='learner' && <>
-            {lesson.state==='passed'?<p>Completed ✓</p>:lesson.state==='review'?<p>Your parent is reviewing this. Your writing is saved.</p>:<>
+            {lesson.state==='passed'?<p className="inline-flex items-center rounded-full border border-[var(--success)] bg-[var(--success-surface)] px-3 py-1 text-sm font-semibold text-[var(--success-foreground)]">Completed ✓</p>:lesson.state==='review'?<p>Your parent is reviewing this. Your writing is saved.</p>:<>
               {lesson.kind==='choice'?<fieldset><legend>Choose your answer</legend>{lesson.choices?.map((choice,index)=><label key={index} className="block p-2"><input type="radio" name={lesson.id} checked={answers[lesson.id]===String(index)} onChange={()=>setAnswers({...answers,[lesson.id]:String(index)})}/> {choice}</label>)}</fieldset>:
-                <label className="block">{lesson.kind==='python'?'Your Python program':'Your answer'}<textarea disabled={busy} className={field+(lesson.kind==='python'?' font-mono':'')} spellCheck={lesson.kind!=='python'} rows={lesson.kind==='python'?8:4} maxLength={lesson.kind==='python'?16384:20000} value={answers[lesson.id]??''} onChange={event=>setAnswers({...answers,[lesson.id]:event.target.value})}/></label>}
+                <label className="block">{lesson.kind==='python'?'Your Python program':'Your answer'}{lesson.kind==='python'?<PythonEditor disabled={busy} value={answers[lesson.id]??''} onChange={value=>setAnswers({...answers,[lesson.id]:value})}/>:<textarea disabled={busy} className={field} rows={4} maxLength={20000} value={answers[lesson.id]??''} onChange={event=>setAnswers({...answers,[lesson.id]:event.target.value})}/>}</label>}
               {['writing','python'].includes(lesson.kind??'') && <button className={button} disabled={busy} onClick={()=>void action(async()=>{await request(`/courses/${selected}/lessons/${lesson.id}/draft`,{text:answers[lesson.id]??''});setMessage(lesson.kind==='python'?'Program saved on this computer.':'Draft saved on this computer.')})}>{lesson.kind==='python'?'Save program':'Save draft'}</button>}
               {lesson.kind==='python' && <button className={button} disabled={busy || codingHints[selected+':'+lesson.id]?.more===false} onClick={()=>void action(async()=>{
                 const key=selected+':'+lesson.id,items=codingHints[key]?.items??[]
@@ -172,7 +182,7 @@ export default function FamilyLearningPage() {
                   setMessage('Running your program…')
                   const key=selected+':'+lesson.id,code=answers[lesson.id]
                   const pending=pendingRuns.current[key]
-                  const id=pending?.code===code?pending.id:crypto.randomUUID().replaceAll('-','')
+                  const id=pending?.code===code?pending.id:randomUuid().replaceAll('-','')
                   pendingRuns.current[key]={code,id}
                   let result:Execution
                   try {result=await request<Execution>(`/courses/${selected}/lessons/${lesson.id}/python`,{code,request_id:id})}
@@ -181,13 +191,13 @@ export default function FamilyLearningPage() {
                   setExecutions(previous=>({...previous,[key]:result}));await open(selected);setMessage(result.feedback)
                   return
                 }
-                const result=await request<{feedback:string}>(`/courses/${selected}/lessons/${lesson.id}/answer`,{answer:answers[lesson.id],request_id:crypto.randomUUID().replaceAll('-','')}); await open(selected);setMessage(result.feedback)
+                const result=await request<{feedback:string}>(`/courses/${selected}/lessons/${lesson.id}/answer`,{answer:answers[lesson.id],request_id:randomUuid().replaceAll('-','')}); await open(selected);setMessage(result.feedback)
               })}>{lesson.kind==='writing'?'Send to parent':lesson.kind==='python'?'Run Python exercise':'Check my answer'}</button>
             </>}
-            {lesson.feedback && <p role="status">{lesson.feedback}</p>}
+            {lesson.feedback && <p role="status" className={lesson.state==='passed'?'rounded-lg border-l-4 border-[var(--success)] bg-[var(--success-surface)] p-4 font-medium text-[var(--success-foreground)]':'text-[var(--muted-foreground)]'}>{lesson.feedback}</p>}
             {!!lesson.attempts && <p>Tries this attempt: {lesson.attempts}</p>}
             {codingHints[selected+':'+lesson.id] && <aside aria-label="Coding hints" role="note" className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--card)] p-3">{codingHints[selected+':'+lesson.id].items.map((hint,index)=><p key={index}>Hint {index+1}: {hint}</p>)}</aside>}
-            {executions[selected+':'+lesson.id] && <section aria-label="Program result"><p>{({finished:'Program finished',error:'Check your program',time_limit:'Time limit reached — try a smaller loop',output_limit:'Too much printed output — try a smaller loop',syntax_feedback:'Check your Python syntax'} as Record<string,string>)[executions[selected+':'+lesson.id].execution]||'Program result'}</p><pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-lg border border-[var(--border)] bg-[var(--card)] p-3">{executions[selected+':'+lesson.id].output||'(No printed output)'}</pre></section>}
+            {executions[selected+':'+lesson.id] && <section aria-label="Program result" className={lesson.state==='passed'?'text-[var(--success)]':''}><p className="font-medium">{({finished:'Program finished',error:'Check your program',time_limit:'Time limit reached — try a smaller loop',output_limit:'Too much printed output — try a smaller loop',syntax_feedback:'Check your Python syntax'} as Record<string,string>)[executions[selected+':'+lesson.id].execution]||'Program result'}</p><pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-lg border border-[var(--border)] bg-[var(--card)] p-3">{executions[selected+':'+lesson.id].output||'(No printed output)'}</pre></section>}
           </>}
         </>}
       </article>)}

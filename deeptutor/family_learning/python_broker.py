@@ -15,7 +15,7 @@ import threading
 from .broker_credentials import read_token
 from .local_lessons import Lessons, validate
 from .python_grading import PythonGrader
-from .python_runner import PythonRunner
+from .python_runner import IMAGE, PythonRunner
 from .recovery import broker_lock, recover
 from .solution_check import check_reference
 
@@ -121,7 +121,7 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(503, {"detail": "Python runner unavailable; ask your parent"})
 
 
-def serve(socket_path, token_path, lesson_directory):
+def serve(socket_path, token_path, lesson_directory, image=IMAGE):
     if os.name != "posix":
         raise RuntimeError("The isolated Python broker requires a Unix host")
     os.umask(0o077)
@@ -133,7 +133,7 @@ def serve(socket_path, token_path, lesson_directory):
     if parent.stat().st_uid != os.getuid() or parent.stat().st_mode & 0o077:
         raise ValueError("Broker directory must be private and owned")
     authority = Lessons(lesson_directory)
-    runner = PythonRunner()
+    runner = PythonRunner(image)
     grader = PythonGrader(authority, runner)
     token = read_token(token_path)
     with broker_lock():
@@ -166,6 +166,7 @@ if __name__ == "__main__":
     parser.add_argument("--token", required=True)
     parser.add_argument("--lessons", required=True)
     parser.add_argument("--initialize-token", action="store_true")
+    parser.add_argument("--image", default=IMAGE)
     args = parser.parse_args()
     if args.initialize_token:
         # Explicit, exclusive creation; never silently rotate an enrolled key.
@@ -174,4 +175,4 @@ if __name__ == "__main__":
         )
         with os.fdopen(descriptor, "w") as target:
             target.write(secrets.token_urlsafe(48))
-    serve(args.socket, args.token, args.lessons)
+    serve(args.socket, args.token, args.lessons, args.image)

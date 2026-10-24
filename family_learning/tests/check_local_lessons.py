@@ -41,6 +41,39 @@ class LessonsTests(unittest.TestCase):
         restarted = Lessons(self.temp.name)
         self.assertEqual(restarted.view(self.child, self.course)["lessons"][1]["state"], "passed")
 
+    def test_discard_retake_clears_current_results_but_keeps_earlier_history(self):
+        self.answer("name-a-value", "0")
+        self.engine.reset_progress(
+            self.parent, self.course, self.child.id, None, 0, uuid.uuid4().hex
+        )
+        old = uuid.uuid4().hex
+        self.answer("name-a-value", "1", old)
+        request = uuid.uuid4().hex
+        result = self.engine.reset_progress(
+            self.parent, self.course, self.child.id, None, 1, request, False
+        )
+        self.assertEqual(
+            result,
+            self.engine.reset_progress(
+                self.parent, self.course, self.child.id, None, 1, request, False
+            ),
+        )
+        view = self.engine.view(self.child, self.course)
+        self.assertEqual(view["lessons"][0]["state"], "new")
+        self.assertEqual(len(view["history"]), 1)
+        self.assertEqual(view["history"][0]["results"][0]["state"], "passed")
+        with self.engine.db() as db:
+            self.assertIsNone(db.execute("SELECT * FROM events WHERE id=?", (old,)).fetchone())
+            self.assertEqual(
+                db.execute("SELECT results FROM retakes WHERE id=?", (request,)).fetchone()[0], "[]"
+            )
+        with self.assertRaisesRegex(ValueError, "earlier attempt"):
+            self.answer("name-a-value", "1", old)
+        with self.assertRaisesRegex(ValueError, "already used"):
+            self.engine.reset_progress(
+                self.parent, self.course, self.child.id, None, 1, request, True
+            )
+
     def test_lesson_retake_archives_results_and_preserves_later_work(self):
         self.answer("name-a-value", "1")
         old = uuid.uuid4().hex

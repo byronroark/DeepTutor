@@ -1,10 +1,14 @@
 import React from 'react'
 import {fireEvent,render,screen,waitFor} from '@testing-library/react'
-import {beforeEach,expect,it,vi} from 'vitest'
+import {afterEach,beforeEach,expect,it,vi} from 'vitest'
 import {AttemptHistory,RetakeControls} from '@/app/family-learning/Retakes'
 
 const mock=vi.hoisted(()=>({fetch:vi.fn()}))
 vi.mock('@/shared/api/client',()=>({apiFetch:mock.fetch}))
+const lanRandom=globalThis.crypto.getRandomValues.bind(globalThis.crypto)
+beforeEach(()=>vi.stubGlobal('crypto',{getRandomValues:lanRandom}))
+afterEach(()=>vi.unstubAllGlobals())
+
 beforeEach(()=>vi.clearAllMocks())
 
 it('requires parent confirmation and sends the selected lesson and attempt version',async()=>{
@@ -41,4 +45,28 @@ it('reuses the same reset request after a transport failure',async()=>{
   fireEvent.click(screen.getByRole('button',{name:'Retake course'}))
   await waitFor(()=>expect(mock.fetch).toHaveBeenCalledTimes(2))
   expect(mock.fetch.mock.calls[0][1].body).toBe(mock.fetch.mock.calls[1][1].body)
+})
+
+it('allows discarding current results only with a separate explicit confirmation',async()=>{
+  mock.fetch.mockResolvedValue({ok:true,json:async()=>({saved:true})})
+  render(<RetakeControls course="course" assignments={[{learner:'child',active:1,epoch:2}]} lessons={[]} name={()=>'Learner'} onSaved={async()=>{}}/>)
+  fireEvent.change(screen.getByLabelText('Learner for retake'),{target:{value:'child'}})
+  fireEvent.click(screen.getByLabelText('Preserve previous results',{exact:true}))
+  expect(screen.getByRole('button',{name:'Retake course'}).hasAttribute('disabled')).toBe(true)
+  fireEvent.click(screen.getByLabelText('Discard the current results and start a fresh attempt.'))
+  fireEvent.click(screen.getByRole('button',{name:'Retake course'}))
+  await waitFor(()=>expect(mock.fetch).toHaveBeenCalledOnce())
+  expect(JSON.parse(mock.fetch.mock.calls[0][1].body).preserve_results).toBe(false)
+  expect(await screen.findByText('Fresh attempt started without saving the discarded results. The learner should refresh their course.')).toBeTruthy()
+})
+
+it('recovers the retake button if request-ID creation fails before sending',async()=>{
+  vi.stubGlobal('crypto',{getRandomValues:()=>{throw new Error('Randomness unavailable')}})
+  render(<RetakeControls course="course" assignments={[{learner:'child',active:1,epoch:0}]} lessons={[]} name={()=>'Learner'} onSaved={async()=>{}}/>)
+  fireEvent.change(screen.getByLabelText('Learner for retake'),{target:{value:'child'}})
+  fireEvent.click(screen.getByLabelText('Preserve previous results and start a fresh attempt.'))
+  fireEvent.click(screen.getByRole('button',{name:'Retake course'}))
+  expect(await screen.findByText('Randomness unavailable')).toBeTruthy()
+  expect(screen.getByRole('button',{name:'Retake course'}).hasAttribute('disabled')).toBe(false)
+  expect(mock.fetch).not.toHaveBeenCalled()
 })

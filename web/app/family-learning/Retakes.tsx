@@ -1,5 +1,7 @@
 'use client'
 
+import {randomUuid} from '@/lib/random-uuid'
+
 import { useState } from 'react'
 import { apiFetch } from '@/shared/api/client'
 import {fieldClass,buttonClass} from './theme'
@@ -24,6 +26,7 @@ export function RetakeControls({course,assignments,lessons,name,onSaved}:{course
   const [learner,setLearner]=useState('')
   const [lesson,setLesson]=useState('')
   const [confirm,setConfirm]=useState(false)
+  const [preserve,setPreserve]=useState(true)
   const [busy,setBusy]=useState(false)
   const [message,setMessage]=useState('')
   const [pending,setPending]=useState<{id:string;epoch:number}|null>(null)
@@ -33,19 +36,21 @@ export function RetakeControls({course,assignments,lessons,name,onSaved}:{course
   const button=buttonClass
   return <section className="space-y-3 rounded-lg border border-[var(--border)] bg-[var(--card)] p-4" aria-label="Start a retake">
     <h3 className="text-[15px] font-semibold">Start a retake</h3>
-    <p>Parent only. Preserve the current results, then start the selected lesson or whole course again. Retaking a lesson locks later lessons until it is passed again; their existing results are preserved.</p>
+    <p>Parent only. Start the selected lesson or whole course again. Keep the current results in history, or discard this attempt for a clean testing reset. Retaking a lesson locks later lessons until it is passed again; their existing results are preserved.</p>
     <label className="block">Learner for retake<select disabled={busy} className={field} value={learner} onChange={e=>{setLearner(e.target.value);setConfirm(false);setPending(null);setMessage('')}}><option value="">Choose an assigned learner</option>{active.map(item=><option key={item.learner} value={item.learner}>{name(item.learner)}</option>)}</select></label>
     <label className="block">What to retake<select disabled={busy} className={field} value={lesson} onChange={e=>{setLesson(e.target.value);setConfirm(false);setPending(null);setMessage('')}}><option value="">Whole course</option>{lessons.map(item=><option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
-    <label className="block"><input type="checkbox" disabled={busy} checked={confirm} onChange={e=>setConfirm(e.target.checked)}/> Preserve previous results and start a fresh attempt.</label>
+    <label className="block"><input type="checkbox" disabled={busy} checked={preserve} onChange={e=>{setPreserve(e.target.checked);setConfirm(false);setPending(null)}}/> Preserve previous results</label>
+    {!preserve&&<p role="note">This permanently removes the selected current attempt’s answers, drafts, feedback and results from the app. Earlier archived attempts stay saved. Installation backups are not erased.</p>}
+    <label className="block"><input type="checkbox" disabled={busy} checked={confirm} onChange={e=>setConfirm(e.target.checked)}/> {preserve?'Preserve previous results and start a fresh attempt.':'Discard the current results and start a fresh attempt.'}</label>
     <button className={button} disabled={busy||!selected||!confirm} onClick={()=>void(async()=>{
       if(!selected)return
       setBusy(true);setMessage('')
-      const operation=pending??{id:crypto.randomUUID().replaceAll('-',''),epoch:selected.epoch??0};setPending(operation)
       try{
-        const response=await apiFetch(`/api/family-learning/courses/${course}/retake`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({learner,lesson:lesson||null,expected_epoch:operation.epoch,request_id:operation.id})})
+        const operation=pending??{id:randomUuid().replaceAll('-',''),epoch:selected.epoch??0};setPending(operation)
+        const response=await apiFetch(`/api/family-learning/courses/${course}/retake`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({learner,lesson:lesson||null,preserve_results:preserve,expected_epoch:operation.epoch,request_id:operation.id})})
         const data=await response.json()
         if(!response.ok){if(response.status<500)setPending(null);throw new Error(typeof data.detail==='string'?data.detail:'Could not start the retake.')}
-        setConfirm(false);setPending(null);await onSaved();setMessage('Retake started. Previous results are saved. The learner should refresh their course.')
+        setConfirm(false);setPending(null);await onSaved();setMessage(preserve?'Retake started. Previous results are saved. The learner should refresh their course.':'Fresh attempt started without saving the discarded results. The learner should refresh their course.')
       }catch(error){setMessage(error instanceof Error?error.message:'Could not confirm the retake. Try again to check the same request.')}finally{setBusy(false)}
     })()}>{busy?'Starting retake…':lesson?'Retake lesson':'Retake course'}</button>
     {message && <p role="status">{message}</p>}

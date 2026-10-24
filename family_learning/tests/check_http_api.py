@@ -23,6 +23,7 @@ class HttpTests(unittest.TestCase):
         self.token = SimpleNamespace(user_id="parent-a", role="admin")
         self.enabled = True
         self.signed_in = True
+        self.allowed_origin = "http://testserver"
         self.python_executor = Mock(side_effect=RuntimeError("Disabled"))
 
         async def auth():
@@ -36,7 +37,7 @@ class HttpTests(unittest.TestCase):
                 auth,
                 lambda: self.engine,
                 lambda: self.enabled,
-                lambda: "http://testserver",
+                lambda: self.allowed_origin,
                 lambda: [{"id": "child-a", "username": "Learner"}],
                 python_executor=self.python_executor,
             ),
@@ -52,6 +53,39 @@ class HttpTests(unittest.TestCase):
             ).read_text()
         )[0]
         self.headers = {"Origin": "http://testserver"}
+
+    def test_explicit_lan_and_local_origins_only(self):
+        self.allowed_origin = "http://testserver,http://192.168.1.221:3785"
+        for value in ["http://testserver", "http://192.168.1.221:3785"]:
+            response = self.client.post(
+                self.base + "/courses", json=self.course, headers={"Origin": value}
+            )
+            self.assertEqual(response.status_code, 200, response.text)
+        for value in ["http://192.168.1.222:3785", "http://192.168.1.221.evil:3785", "null"]:
+            self.assertEqual(
+                self.client.post(
+                    self.base + "/courses", json=self.course, headers={"Origin": value}
+                ).status_code,
+                403,
+            )
+
+    def test_export_contains_only_the_course_and_requires_its_parent_owner(self):
+        published = self.client.post(self.base + "/courses", json=self.course, headers=self.headers)
+        key = published.json()["id"]
+        exported = self.client.get(self.base + "/courses/" + key + "/export")
+        self.assertEqual(exported.status_code, 200)
+        self.assertEqual(
+            exported.json(),
+            {"format": "family-learning-course", "version": 1, "course": self.course},
+        )
+        self.token = SimpleNamespace(user_id="child-a", role="user")
+        self.assertEqual(
+            self.client.get(self.base + "/courses/" + key + "/export").status_code, 403
+        )
+        self.token = SimpleNamespace(user_id="other-parent", role="admin")
+        self.assertEqual(
+            self.client.get(self.base + "/courses/" + key + "/export").status_code, 403
+        )
 
     def publish_assign(self):
         published = self.client.post(self.base + "/courses", json=self.course, headers=self.headers)

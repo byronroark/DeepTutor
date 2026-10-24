@@ -8,7 +8,16 @@ from .access import learner_route_allowed
 
 
 class LocalLearningFirewall:
-    def __init__(self, app, enabled, auth_enabled, decode_token, parent_callback=lambda: False):
+    def __init__(
+        self,
+        app,
+        enabled,
+        auth_enabled,
+        decode_token,
+        parent_callback=lambda: False,
+        learner_host=lambda: False,
+    ):
+        self.learner_host = learner_host
         self.parent_callback = parent_callback
         self.app, self.enabled, self.auth_enabled, self.decode_token = (
             app,
@@ -24,6 +33,7 @@ class LocalLearningFirewall:
         if scope["type"] == "http" and (
             (
                 self.parent_callback()
+                and not self.learner_host()
                 and path == "/api/auth/openai-codex/callback"
                 and scope["method"] == "GET"
             )
@@ -59,6 +69,24 @@ class LocalLearningFirewall:
             path=path,
             websocket=scope["type"] == "websocket",
         )
+        if self.learner_host() and (payload is None or payload.role != "admin"):
+            allowed = (
+                allowed
+                and scope["type"] == "http"
+                and (
+                    path
+                    in {
+                        "/api/auth/me",
+                        "/api/auth/status",
+                        "/api/auth/logout",
+                        "/api/family-learning",
+                    }
+                    or (
+                        path.startswith("/api/family-learning/")
+                        and not path.startswith("/api/family-learning/authoring")
+                    )
+                )
+            )
         if allowed:
             return await self.app(scope, receive, send)
         if scope["type"] == "websocket":
