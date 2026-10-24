@@ -2,8 +2,9 @@
 
 Use the reusable context in the root README with any AI chat tool. The parent
 chooses the subject, age/experience, interests, language, lesson count and goals.
-Ask for one self-contained UTF-8 JSON file. There is no provider integration,
-API key or subscription link. Learner work stays in the local installation.
+Ask for one self-contained UTF-8 JSON file. This file-import path needs no provider
+integration or credentials. The separate **Create course with AI** workflow can
+use the parent's connected OpenAI account. Learner work stays local in both paths.
 
 ## Import and review
 

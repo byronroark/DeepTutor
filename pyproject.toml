@@ -329,6 +329,7 @@ include = ["deeptutor*", "deeptutor_cli*"]
 # scripts. Without these, ``pip install deeptutor`` ships a wheel missing
 # every agent prompt and capability fails at first use.
 deeptutor = [
+    "family_learning/authoring_prompt.txt",
     "**/*.yaml",
     "**/*.yml",
     "**/*.md",

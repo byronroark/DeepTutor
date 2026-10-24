@@ -6,12 +6,14 @@ import {FamilyLearningLink} from '@/components/sidebar/FamilyLearningLink'
 const mock=vi.hoisted(()=>({admin:true,authenticated:true,fetch:vi.fn()}))
 vi.mock('@/hooks/useAuthStatus',()=>({useAuthStatus:()=>({isAdmin:mock.admin,authenticated:mock.authenticated})}))
 vi.mock('@/shared/api/client',()=>({apiFetch:mock.fetch}))
+vi.mock('next/navigation',()=>({usePathname:()=>'/family-learning'}))
 vi.mock('next/link',()=>({default:({prefetch,children,...props}:React.ComponentProps<'a'>&{prefetch?:boolean})=><a {...props}>{children}</a>}))
 beforeEach(()=>{mock.admin=true;mock.authenticated=true;mock.fetch.mockReset();mock.fetch.mockResolvedValue({ok:true})})
 
 it('gives parents a direct sidebar link when Family Learning is enabled',async()=>{
   render(<FamilyLearningLink/>)
   expect((await screen.findByRole('link',{name:'Family Learning'})).getAttribute('href')).toBe('/family-learning')
+  expect(screen.getByRole('link',{name:'Family Learning'})).toHaveAttribute('aria-current','page')
 })
 it('keeps an accessible icon link when the sidebar is collapsed',async()=>{
   render(<FamilyLearningLink collapsed/>)

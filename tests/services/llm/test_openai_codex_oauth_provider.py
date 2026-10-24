@@ -301,3 +301,39 @@ def test_provider_source_no_longer_imports_oauth_cli_kit() -> None:
     assert "oauth_cli_kit" not in source
     assert "get_codex_oauth_service" in source
     assert OpenAICodexProvider().get_default_model() == "openai-codex/gpt-5.6-sol"
+
+
+@pytest.mark.asyncio
+async def test_parent_course_schema_is_forwarded_without_enabling_tools(monkeypatch):
+    service = FakeCodexService()
+    captured = []
+
+    async def request(url, headers, body, **kwargs):
+        captured.append(body)
+        return '{"course":"draft"}', [], "stop"
+
+    monkeypatch.setattr(module, "get_codex_oauth_service", lambda: service)
+    monkeypatch.setattr(module, "_request_codex", request)
+    text_format = {
+        "type": "json_schema",
+        "name": "family_course",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+            "additionalProperties": False,
+        },
+    }
+    response = await OpenAICodexProvider().chat(
+        [{"role": "user", "content": "Prepare a course"}],
+        model="gpt-5.6-sol",
+        tools=None,
+        tool_choice="none",
+        text_format=text_format,
+    )
+    assert response.finish_reason == "stop"
+    assert captured[0]["text"]["format"] == text_format
+    assert captured[0]["tool_choice"] == "none"
+    assert "tools" not in captured[0]
+    assert captured[0]["store"] is False

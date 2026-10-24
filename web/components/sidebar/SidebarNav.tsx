@@ -1,6 +1,7 @@
 "use client";
 
 import { browserStorage } from "@/shared/storage";
+import { FamilyLearningLink } from "./FamilyLearningLink";
 
 /**
  * The workspace feature list — the part of the sidebar a learner owns.
@@ -403,8 +404,9 @@ export function SidebarNav({
   };
 
   return (
-    <nav className="px-2 pt-1">
+    <nav className="px-2 pt-px">
       <div className="space-y-px">
+        <FamilyLearningLink embedded onNavigate={onNavigate} />
         {resolved.visible.map((href) => (
           <Fragment key={href}>{renderRow(href, visibleDrag, false)}</Fragment>
         ))}
@@ -571,7 +573,7 @@ export function SidebarHome({
   const className =
     "flex min-h-8 items-center gap-2 rounded-md px-2.5 py-1.5 text-[13px] transition-colors";
   return (
-    <div className="shrink-0 px-2 pb-1 pt-1">
+    <div className="shrink-0 px-2 pt-1">
       {locked ? (
         <Tooltip
           label={t(entry.label)}

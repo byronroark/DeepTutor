@@ -287,7 +287,6 @@ export function SidebarShell({
       </div>
 
       <SidebarHome onHomeClick={handleHomeClick} />
-      <FamilyLearningLink onNavigate={closeDrawerOnNav} />
 
       {/* Modules and conversations share one scroll region below Home. */}
       <div

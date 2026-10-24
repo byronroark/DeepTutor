@@ -5,6 +5,9 @@ import FamilyLearningPage from '@/app/family-learning/page'
 
 const mock = vi.hoisted(() => ({ fetch: vi.fn() }))
 vi.mock('@/shared/api/client', () => ({apiFetch: mock.fetch}))
+vi.mock('@/components/layout/AppShell',()=>({default:({children,sidebar}:{children:React.ReactNode;sidebar:React.ReactNode})=><div>{sidebar}{children}</div>}))
+vi.mock('@/components/sidebar/UtilitySidebar',()=>({default:()=> <nav aria-label="DeepTutor navigation"/>}))
+vi.mock('@/components/access/CapabilityAccessContext',()=>({CapabilityAccessProvider:({children}:{children:React.ReactNode})=><>{children}</>}))
 const course = {title:'Fractions',subject:'Math',objectives:['Understand halves'],lessons:[
   {id:'half',title:'One half',explanation:'Two equal shares.',question:'Which is half?',kind:'choice',choices:['1/2','1/4'],unlocked:true,state:'new'},
   {id:'next',title:'The next step',unlocked:false},
@@ -21,6 +24,7 @@ it('reveals a prepared coding hint without running or changing the program',asyn
   })
   render(<FamilyLearningPage/>)
   fireEvent.click(await screen.findByRole('button',{name:'Loops'}))
+  expect(screen.queryByRole('navigation',{name:'DeepTutor navigation'})).toBeNull()
   const editor=await screen.findByLabelText('Your Python program')
   fireEvent.change(editor,{target:{value:'print(42)'}})
   fireEvent.click(screen.getByRole('button',{name:'Show hint'}))
@@ -79,6 +83,7 @@ it('keeps writing feedback with the parent and requires feedback before approval
   render(<FamilyLearningPage/>)
   fireEvent.click(await screen.findByRole('button',{name:'Fractions'}))
   expect(await screen.findByText('My report.')).toBeTruthy()
+  expect(screen.getByRole('navigation',{name:'DeepTutor navigation'})).toBeTruthy()
   expect(screen.getByRole('button',{name:'Approve writing'}).hasAttribute('disabled')).toBe(true)
   fireEvent.change(screen.getByLabelText('Your feedback'),{target:{value:'Add an example.'}})
   fireEvent.click(screen.getByRole('button',{name:'Request a revision'}))
