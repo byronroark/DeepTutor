@@ -7,8 +7,9 @@ import { useEffect, useState, type MouseEvent } from "react";
 import { useAuthStatus } from "@/hooks/useAuthStatus";
 import { apiFetch } from "@/shared/api/client";
 
-export function FamilyLearningLink({ collapsed = false, onNavigate }: {
+export function FamilyLearningLink({ collapsed = false, embedded = false, onNavigate }: {
   collapsed?: boolean;
+  embedded?: boolean;
   onNavigate?: (event: MouseEvent<HTMLAnchorElement>) => void;
 }) {
   const { authenticated, isAdmin } = useAuthStatus();
@@ -24,7 +25,7 @@ export function FamilyLearningLink({ collapsed = false, onNavigate }: {
     return () => { active = false; };
   }, [authenticated, isAdmin]);
   if (!authenticated || !isAdmin || !available) return null;
-  return <div className={collapsed ? "flex shrink-0 justify-center pb-1" : "shrink-0 px-2 pb-1"}>
+  return <div className={embedded ? "" : collapsed ? "flex shrink-0 justify-center pb-1" : "shrink-0 px-2 pb-1"}>
     <Link href="/family-learning" prefetch={false} aria-label="Family Learning"
       aria-current={selected ? "page" : undefined}
       title={collapsed ? "Family Learning" : undefined} onClick={onNavigate}
