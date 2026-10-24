@@ -48,6 +48,11 @@
 
 ## Family Learning: bring lessons from your AI chat
 
+Family Learning uses DeepTutor's shared page layout, typography, theme tokens and
+action styles. The parent view includes the normal responsive DeepTutor sidebar;
+the learner view keeps focused course navigation. Both follow the selected
+DeepTutor theme, including Default, Cream, Dark and Glass.
+
 Parents can now choose **Family Learning → Create course with AI** to generate
 a saved private draft using their own connected OpenAI Codex account. Choose a
 topic, level, goals, 1–8 exercises, minutes per exercise, exercise types and parent

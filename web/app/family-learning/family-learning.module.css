@@ -1,0 +1,50 @@
+.content {
+  color: var(--foreground);
+  font-size: 13px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.content > * + * { margin-top: 24px; }
+.content :where(section, article, aside, fieldset, form, label) { min-width: 0; }
+.content :where(label, legend) { font-size: 12.5px; font-weight: 500; }
+.content :where(input[type='checkbox'], input[type='radio']) {
+  accent-color: var(--primary);
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.content :where(input[type='checkbox'], input[type='radio']):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+.content :where(select, option) { color: var(--foreground); background-color: var(--background); }
+.content :where(textarea) { min-height: 84px; resize: vertical; }
+.content :where(pre) {
+  max-width: 100%;
+  overflow: auto;
+  border-radius: 8px;
+  background: var(--muted);
+  padding: 12px;
+  font-size: 12px;
+}
+.content :where(details > summary) {
+  cursor: pointer;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  padding: 10px 12px;
+  font-weight: 500;
+}
+.content :where(details > summary:hover) { background: var(--muted); }
+.content :where(details > summary:focus-visible) { outline: 2px solid var(--ring); outline-offset: 2px; }
+.content :where(details[open] > summary) { margin-bottom: 12px; }
+.content :where([role='alert']) {
+  border: 1px solid var(--destructive);
+  border-radius: 8px;
+  color: var(--destructive);
+  padding: 12px;
+}
+.content :where([role='status']) { color: var(--muted-foreground); font-size: 12.5px; }
+.content :where(ul, ol) { padding-left: 20px; }
+.content :where(ul) { list-style: disc; }
+.content :where(ol) { list-style: decimal; }

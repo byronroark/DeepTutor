@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiFetch } from '@/shared/api/client'
+import {fieldClass,buttonClass,primaryClass} from './theme'
 import CourseImport from './CourseImport'
+import FamilyFrame from './FamilyFrame'
+import {PageHeader,pageGridClass} from '@/components/layout/FeaturePage'
 import CourseAuthoring from './CourseAuthoring'
 import { AttemptHistory, RetakeControls, type HistoryEntry } from './Retakes'
 
@@ -62,22 +65,27 @@ export default function FamilyLearningPage() {
     try { await work() } catch (error) { setMessage(error instanceof Error ? error.message : 'Something went wrong.') }
     finally { setBusy(false) }
   }
-  const field = 'w-full rounded-lg border border-current/20 bg-transparent p-3'
-  const button = 'rounded-lg border border-current/25 px-4 py-2 disabled:opacity-40'
+  const field = fieldClass
+  const button = buttonClass
   const name = (id: string) => accounts.find(account=>account.id===id)?.username ?? 'Learner'
-  return <main className="mx-auto h-dvh w-full max-w-4xl space-y-6 overflow-y-auto p-6">
-    <header><h1 className="text-3xl font-semibold">Family Learning</h1><p>Small steps. Time to practise. Help when you need it.</p></header>
-    <p role="status" aria-live="polite">{message}</p>
-    {role==='parent' && <a className={button+' inline-block'} href="/">DeepTutor dashboard</a>}
-    {role && <button className={button} disabled={busy} onClick={()=>void action(async()=>{
-      const response=await apiFetch('/api/auth/logout',{method:'POST'})
-      if(!response.ok)throw new Error('Could not sign out. Please try again.')
-      window.location.assign('/login?next=%2Ffamily-learning')
-    })}>Sign out</button>}
+  return <FamilyFrame role={role}>
+    <PageHeader title="Family Learning" description="Small steps. Time to practise. Help when you need it." action={<>
+      {role==='parent' && <a className={button} href="/">DeepTutor dashboard</a>}
+      {role && <button className={button} disabled={busy} onClick={()=>void action(async()=>{
+        const response=await apiFetch('/api/auth/logout',{method:'POST'})
+        if(!response.ok)throw new Error('Could not sign out. Please try again.')
+        window.location.assign('/login?next=%2Ffamily-learning')
+      })}>Sign out</button>}
+    </>}/>
+    <p className="rounded-lg border border-[var(--border)] bg-[var(--muted)] px-4 py-3" role="status" aria-live="polite">{message}</p>
     {!role && <a href="/login">Sign in to your account</a>}
-    <div className="flex flex-wrap gap-3">{courses.map(item => <button className={button} disabled={busy} key={item.id} onClick={() => void action(() => open(item.id))}>{item.title}</button>)}</div>
-    {role === 'parent' && <section className="space-y-3 rounded-xl border border-current/20 p-5">
-      <h2 className="text-xl font-semibold">Prepare lessons</h2>
+    <section aria-label="Your courses" className="space-y-3">
+      <div className="flex items-center justify-between gap-3"><h2 className="text-[13.5px] font-semibold">{role==='parent'?'Course library':'Your courses'}</h2><span className="text-xs text-[var(--muted-foreground)]">{courses.length} {courses.length===1?'course':'courses'}</span></div>
+      <div className={pageGridClass(3)}>{courses.map(item => <button aria-label={item.title} aria-pressed={selected===item.id} className={'group min-h-24 rounded-xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] disabled:opacity-50 '+(selected===item.id?'border-[var(--primary)] bg-[var(--accent)]':'border-[var(--border)] bg-[var(--card)] hover:bg-[var(--muted)]')} disabled={busy} key={item.id} onClick={() => void action(() => open(item.id))}><span className="block font-medium">{item.title}</span><span className="mt-1.5 block text-xs text-[var(--muted-foreground)]">{item.subject}</span></button>)}</div>
+      {role && courses.length===0 && <p className="rounded-xl border border-dashed border-[var(--border)] p-6 text-[var(--muted-foreground)]">{role==='parent'?'Prepare your first course below, then assign it when you are ready.':'Your assigned courses will appear here.'}</p>}
+    </section>
+    {role === 'parent' && <section className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-5">
+      <h2 className="text-[15px] font-semibold">Prepare lessons</h2>
       <CourseAuthoring onPublished={async(id)=>{await load();await open(id);setMessage('AI-prepared course published privately. Choose a learner to assign it.')}}/>
       <p>Add the starter lessons, review their material, then assign them individually.</p>
       <CourseImport onPublished={async(id)=>{await load();await open(id);setMessage('Course imported privately. Review it and choose a learner to assign it.')}}/>
@@ -114,10 +122,10 @@ export default function FamilyLearningPage() {
         </>}
         <label className="block">Prepared hint<textarea name="hint" maxLength={2000} className={field}/></label>
         <label className="block">Success feedback<input name="success" maxLength={2000} className={field}/></label>
-        <button className={button} disabled={busy}>Save for review</button>
+        <button className={primaryClass} disabled={busy}>Save for review</button>
       </form></details>
     </section>}
-    {course && <section className="space-y-4"><h2 className="text-2xl font-semibold">{course.title}</h2><ul>{course.objectives.map(item=><li key={item}>{item}</li>)}</ul>
+    {course && <section className="space-y-4"><h2 className="font-serif text-2xl font-semibold">{course.title}</h2><ul>{course.objectives.map(item=><li key={item}>{item}</li>)}</ul>
       {parentCourse && <>
         <h3 className="font-semibold">Assignments</h3>
         {accounts.map(account => {const active=parentCourse.assignments.some(item=>item.learner===account.id && item.active===1); return <button disabled={busy} className={button} key={account.id} onClick={()=>void action(async()=>{
@@ -127,7 +135,7 @@ export default function FamilyLearningPage() {
         {parentCourse.progress.map(item=><p key={item.learner+item.lesson}>{name(item.learner)} · {item.lesson}: {item.state} ({item.attempts} attempts)</p>)}
         <RetakeControls key={selected} course={selected} assignments={parentCourse.assignments} lessons={course.lessons} name={name} onSaved={async()=>{await open(selected)}}/>
         <h3 className="font-semibold">Writing review</h3>
-        {parentCourse.submissions.map(item=><article key={item.id} className="space-y-3 rounded-xl border border-current/20 p-4">
+        {parentCourse.submissions.map(item=><article key={item.id} className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
           <p>{name(item.learner)} · {item.decision}</p><pre className="whitespace-pre-wrap font-sans">{item.writing}</pre>
           {item.decision==='pending'?<><label className="block">Your feedback<textarea className={field} value={feedback[item.id]??''} onChange={event=>setFeedback({...feedback,[item.id]:event.target.value})}/></label>
             {[false,true].map(approve=><button key={String(approve)} className={button} disabled={busy || !feedback[item.id]?.trim()} onClick={()=>void action(async()=>{
@@ -136,12 +144,12 @@ export default function FamilyLearningPage() {
         </article>)}
       </>}
       <AttemptHistory entries={parentCourse?.history??course.history??[]} lessons={course.lessons} name={parentCourse?name:undefined}/>
-      {course.lessons.map(lesson=><article key={selected+lesson.id} className="space-y-3 rounded-xl border border-current/20 p-5">
-        <h3 className="text-xl font-semibold">{lesson.title}</h3>
+      {course.lessons.map(lesson=><article key={selected+lesson.id} className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-5">
+        <h3 className="text-[15px] font-semibold">{lesson.title}</h3>
         {lesson.unlocked===false?<p>Finish the earlier lesson to unlock this step.</p>:<>
           <p className="whitespace-pre-wrap">{lesson.explanation}</p><p className="font-semibold">{lesson.question}</p>
           {lesson.rubric && <ul>{lesson.rubric.map(item=><li key={item}>{item}</li>)}</ul>}
-          {role==='parent' && <aside className="space-y-2 rounded-lg border border-current/20 p-3">
+          {role==='parent' && <aside className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--card)] p-3">
             <h4 className="font-semibold">Parent review</h4>
             {lesson.choices && <ol>{lesson.choices.map((choice,index)=><li key={index}>{index+1}. {choice}</li>)}</ol>}
             {lesson.answer!==undefined && <p>Correct answer: {lesson.kind==='choice'?lesson.choices?.[Number(lesson.answer)]:String(lesson.answer)}</p>}
@@ -159,7 +167,7 @@ export default function FamilyLearningPage() {
                 const result=await request<{hint:string;has_more:boolean}>(`/courses/${selected}/lessons/${lesson.id}/hint?index=${items.length}`)
                 setCodingHints(previous=>({...previous,[key]:{items:[...items,result.hint],more:result.has_more}}))
               })}>{codingHints[selected+':'+lesson.id]?.more===false?'All hints shown':codingHints[selected+':'+lesson.id]?'Next hint':'Show hint'}</button>}
-              <button className={button} disabled={busy || !answers[lesson.id]?.trim()} onClick={()=>void action(async()=>{
+              <button className={primaryClass} disabled={busy || !answers[lesson.id]?.trim()} onClick={()=>void action(async()=>{
                 if(lesson.kind==='python'){
                   setMessage('Running your program…')
                   const key=selected+':'+lesson.id,code=answers[lesson.id]
@@ -178,12 +186,12 @@ export default function FamilyLearningPage() {
             </>}
             {lesson.feedback && <p role="status">{lesson.feedback}</p>}
             {!!lesson.attempts && <p>Tries this attempt: {lesson.attempts}</p>}
-            {codingHints[selected+':'+lesson.id] && <aside aria-label="Coding hints" role="note" className="space-y-2 rounded-lg border border-current/20 p-3">{codingHints[selected+':'+lesson.id].items.map((hint,index)=><p key={index}>Hint {index+1}: {hint}</p>)}</aside>}
-            {executions[selected+':'+lesson.id] && <section aria-label="Program result"><p>{({finished:'Program finished',error:'Check your program',time_limit:'Time limit reached — try a smaller loop',output_limit:'Too much printed output — try a smaller loop',syntax_feedback:'Check your Python syntax'} as Record<string,string>)[executions[selected+':'+lesson.id].execution]||'Program result'}</p><pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-lg border border-current/20 p-3">{executions[selected+':'+lesson.id].output||'(No printed output)'}</pre></section>}
+            {codingHints[selected+':'+lesson.id] && <aside aria-label="Coding hints" role="note" className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--card)] p-3">{codingHints[selected+':'+lesson.id].items.map((hint,index)=><p key={index}>Hint {index+1}: {hint}</p>)}</aside>}
+            {executions[selected+':'+lesson.id] && <section aria-label="Program result"><p>{({finished:'Program finished',error:'Check your program',time_limit:'Time limit reached — try a smaller loop',output_limit:'Too much printed output — try a smaller loop',syntax_feedback:'Check your Python syntax'} as Record<string,string>)[executions[selected+':'+lesson.id].execution]||'Program result'}</p><pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-lg border border-[var(--border)] bg-[var(--card)] p-3">{executions[selected+':'+lesson.id].output||'(No printed output)'}</pre></section>}
           </>}
         </>}
       </article>)}
     </section>}
     <button className={button} disabled={busy} onClick={()=>void action(async()=>{await load();if(selected)await open(selected)})}>Refresh</button>
-  </main>
+  </FamilyFrame>
 }

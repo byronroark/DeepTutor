@@ -2,15 +2,16 @@
 
 import { useState } from 'react'
 import { apiFetch } from '@/shared/api/client'
+import {fieldClass,buttonClass} from './theme'
 
 export type HistoryEntry={id:string;learner:string;scope:string;archived_at:string;results:{lesson:string;state:string;attempts:number;feedback:string}[]}
 
 export function AttemptHistory({entries,lessons,name}:{entries:HistoryEntry[];lessons:{id:string;title:string}[];name?:(id:string)=>string}){
   if(!entries.length)return null
   const title=(id:string)=>lessons.find(item=>item.id===id)?.title??id
-  return <section aria-label="Previous results" className="space-y-3"><h3 className="text-xl font-semibold">Previous results</h3>
+  return <section aria-label="Previous results" className="space-y-3"><h3 className="text-[15px] font-semibold">Previous results</h3>
     <p>Earlier results stay saved. Compare completion and number of tries; these lessons do not currently use numeric grades.</p>
-    {entries.map(entry=><details key={entry.id} className="rounded-lg border border-current/20 p-3">
+    {entries.map(entry=><details key={entry.id} className="rounded-lg border border-[var(--border)] bg-[var(--card)] p-3">
       <summary>{name?name(entry.learner)+' · ':''}{entry.scope==='*'?'Course retake':title(entry.scope)} · {new Date(entry.archived_at).toLocaleString()}</summary>
       {entry.results.length===0?<p>No completed result was recorded before this retake.</p>:entry.results.map(result=><article key={result.lesson} className="py-2">
         <h4 className="font-semibold">{title(result.lesson)}</h4><p>{result.state} · {result.attempts} {result.attempts===1?'try':'tries'}</p><p className="whitespace-pre-wrap">{result.feedback}</p>
@@ -28,10 +29,10 @@ export function RetakeControls({course,assignments,lessons,name,onSaved}:{course
   const [pending,setPending]=useState<{id:string;epoch:number}|null>(null)
   const active=assignments.filter(item=>item.active===1)
   const selected=active.find(item=>item.learner===learner)
-  const field='w-full rounded-lg border border-current/20 bg-transparent p-3'
-  const button='rounded-lg border border-current/25 px-4 py-2 disabled:opacity-40'
-  return <section className="space-y-3 rounded-lg border border-current/20 p-4" aria-label="Start a retake">
-    <h3 className="text-xl font-semibold">Start a retake</h3>
+  const field=fieldClass
+  const button=buttonClass
+  return <section className="space-y-3 rounded-lg border border-[var(--border)] bg-[var(--card)] p-4" aria-label="Start a retake">
+    <h3 className="text-[15px] font-semibold">Start a retake</h3>
     <p>Parent only. Preserve the current results, then start the selected lesson or whole course again. Retaking a lesson locks later lessons until it is passed again; their existing results are preserved.</p>
     <label className="block">Learner for retake<select disabled={busy} className={field} value={learner} onChange={e=>{setLearner(e.target.value);setConfirm(false);setPending(null);setMessage('')}}><option value="">Choose an assigned learner</option>{active.map(item=><option key={item.learner} value={item.learner}>{name(item.learner)}</option>)}</select></label>
     <label className="block">What to retake<select disabled={busy} className={field} value={lesson} onChange={e=>{setLesson(e.target.value);setConfirm(false);setPending(null);setMessage('')}}><option value="">Whole course</option>{lessons.map(item=><option key={item.id} value={item.id}>{item.title}</option>)}</select></label>
