@@ -48,9 +48,15 @@
 
 ## Family Learning: bring lessons from your AI chat
 
+For a separate learner PC, see the [learner-host installation and parent access guide](family_learning/LEARNER_HOST.md).
+Parents can use their own private AI connections through the full parent dashboard
+on the learner host. A separate parent-PC authoring installation can also export
+reviewed course files for import. Automatic synchronization is not yet implemented.
+
 Family Learning uses DeepTutor's shared page layout, typography, theme tokens and
 action styles. The parent view includes the normal responsive DeepTutor sidebar;
-the learner view keeps focused course navigation. Both follow the selected
+the learner view keeps focused course navigation. Python exercises include a
+syntax-colored editor and theme-aware success feedback. Both views follow the selected
 DeepTutor theme, including Default, Cream, Dark and Glass.
 
 Parents can now choose **Family Learning → Create course with AI** to generate
@@ -129,13 +135,13 @@ and output matching are practice aids, not proof of understanding.
 See the [complete format and import guide](family_learning/COURSE_IMPORT.md),
 [valid two-exercise example](family_learning/example-course.json), and
 [Python lesson details](family_learning/PYTHON_LESSONS.md). The pilot remains
-local-only until separate household deployment acceptance.
+loopback-only; a separate reviewed learner-host deployment can enable scoped LAN access.
 
-### Retaking lessons without losing results
+### Retaking lessons and clearing test attempts
 
 On an assigned course, parents can use **Start a retake** to choose a learner
-and either one lesson or the whole course. Confirm preservation of previous
-results, then choose **Retake lesson** or **Retake course**. The learner refreshes
+and either one lesson or the whole course. **Preserve previous results** is on
+by default. Confirm the action, then choose **Retake lesson** or **Retake course**. The learner refreshes
 the course to begin again. **Previous results** is available to the parent and
 that learner, including dated pass/retry/review outcomes, feedback and number
 of tries. Current lessons show tries for the new attempt. Numeric or letter
@@ -143,10 +149,17 @@ grades are not currently calculated; compare completion and tries instead.
 
 A single-lesson retake preserves later results but locks those lessons until
 the prerequisite is passed again. A course retake restarts all its lessons.
-Original writing remains saved; an earlier pending submission is archived and
+When preserving results, original writing remains saved; an earlier pending submission is archived and
 cannot grade a new attempt. Running Python results are discarded if a parent
 starts a retake while execution is in progress. Retakes never execute code or
 silently reassign a learner. Only the parent who owns the course can start one.
+
+For a clean testing reset, uncheck **Preserve previous results** and explicitly
+confirm **Discard the current results and start a fresh attempt**. This removes
+the selected current answers, drafts, feedback, submissions and run records
+without adding them to attempt history. Earlier archived attempts and other
+learners remain unchanged. Old request IDs are retired to prevent replaying
+discarded answers. Existing installation backups are not purged by this action.
 
 ### 📦 Releases
 

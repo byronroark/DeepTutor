@@ -9,7 +9,7 @@ import errno
 import ipaddress
 
 
-async def serve(target, port=3783, ipv6_loopback=False):
+async def serve(target, port=3783, ipv6_loopback=False, lan_address=None):
     async def connection(reader, writer):
         remote = None
         try:
@@ -36,7 +36,12 @@ async def serve(target, port=3783, ipv6_loopback=False):
 
     try:
         server = await asyncio.start_server(
-            connection, ["127.0.0.1", "::1"] if ipv6_loopback else "127.0.0.1", port, limit=65536
+            connection,
+            ["127.0.0.1", lan_address]
+            if lan_address
+            else (["127.0.0.1", "::1"] if ipv6_loopback else "127.0.0.1"),
+            port,
+            limit=65536,
         )
     except OSError as error:
         if not ipv6_loopback or error.errno not in {errno.EAFNOSUPPORT, errno.EADDRNOTAVAIL}:
@@ -50,10 +55,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("container_ip")
     parser.add_argument("--port", type=int, default=3783)
+    parser.add_argument("--lan-address")
     args = parser.parse_args()
+    if args.lan_address:
+        lan = ipaddress.ip_address(args.lan_address)
+        if lan.version != 4 or not lan.is_private or lan.is_loopback or lan.is_unspecified:
+            parser.error("Use an explicit private IPv4 LAN address")
     address = ipaddress.ip_address(args.container_ip)
     if address.version != 4 or not address.is_private or address.is_loopback:
         parser.error("Use the private Docker bridge address of the test container")
     if not 1024 <= args.port <= 65535:
         parser.error("Use an unprivileged local port")
-    asyncio.run(serve(str(address), args.port))
+    asyncio.run(serve(str(address), args.port, lan_address=args.lan_address))
