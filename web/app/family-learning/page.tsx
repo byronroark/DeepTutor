@@ -10,6 +10,7 @@ import FamilyFrame from './FamilyFrame'
 import PythonEditor from './PythonEditor'
 import {PageHeader,pageGridClass} from '@/components/layout/FeaturePage'
 import CourseAuthoring from './CourseAuthoring'
+import TopicRequests from './TopicRequests'
 import { AttemptHistory, RetakeControls, type HistoryEntry } from './Retakes'
 
 type Summary = { id: string; title: string; subject: string }
@@ -82,6 +83,7 @@ export default function FamilyLearningPage() {
     </>}/>
     <p className="rounded-lg border border-[var(--border)] bg-[var(--muted)] px-4 py-3" role="status" aria-live="polite">{message}</p>
     {!role && <a href="/login">Sign in to your account</a>}
+    <TopicRequests role={role}/>
     <section aria-label="Your courses" className="space-y-3">
       <div className="flex items-center justify-between gap-3"><h2 className="text-[13.5px] font-semibold">{role==='parent'?'Course library':'Your courses'}</h2><span className="text-xs text-[var(--muted-foreground)]">{courses.length} {courses.length===1?'course':'courses'}</span></div>
       <div className={pageGridClass(3)}>{courses.map(item => <button aria-label={item.title} aria-pressed={selected===item.id} className={'group min-h-24 rounded-xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] disabled:opacity-50 '+(selected===item.id?'border-[var(--primary)] bg-[var(--accent)]':'border-[var(--border)] bg-[var(--card)] hover:bg-[var(--muted)]')} disabled={busy} key={item.id} onClick={() => void action(() => open(item.id))}><span className="block font-medium">{item.title}</span><span className="mt-1.5 block text-xs text-[var(--muted-foreground)]">{item.subject}</span></button>)}</div>

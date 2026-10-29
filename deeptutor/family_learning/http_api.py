@@ -10,6 +10,20 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
 from .course_import import MAX_IMPORT_BYTES, parse_document
 from .local_lessons import Actor
+from .topic_requests import Topics
+
+
+class TopicRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    request_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    topic: str = Field(min_length=3, max_length=160)
+
+
+class TopicDecision(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    decision: str = Field(pattern=r"^(approve|deny)$")
+    expected_topic: str = Field(min_length=3, max_length=160)
+    replacement: str | None = Field(default=None, min_length=3, max_length=160)
 
 
 class Answer(BaseModel):
@@ -137,6 +151,26 @@ def create_router(
     @router.get("/learners")
     def learners(current=Depends(parent)):
         return learner_accounts()
+
+    @router.get("/topic-requests")
+    def topic_requests(current=Depends(actor)):
+        return perform(lambda: Topics(engine().path.parent).list(current))
+
+    @router.post("/topic-requests")
+    def ask_topic(body: TopicRequest, current=Depends(actor)):
+        if current.role != "learner" or current.id not in {row["id"] for row in learner_accounts()}:
+            raise HTTPException(403, "Enrolled learner account required")
+        return perform(
+            lambda: Topics(engine().path.parent).ask(current, body.request_id, body.topic)
+        )
+
+    @router.post("/topic-requests/{identifier}/decision")
+    def decide_topic(identifier: str, body: TopicDecision, current=Depends(parent)):
+        return perform(
+            lambda: Topics(engine().path.parent).decide(
+                current, identifier, body.decision, body.expected_topic, body.replacement
+            )
+        )
 
     @router.get("/starters")
     def starters(current=Depends(parent)):
